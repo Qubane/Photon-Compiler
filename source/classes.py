@@ -15,3 +15,13 @@ class Token:
 
     type: str
     value: Any
+
+
+@dataclass
+class TokenLine:
+    """
+    Container for multiple tokens
+    """
+
+    tokens: list[Token]
+    reference_line: int = -1
