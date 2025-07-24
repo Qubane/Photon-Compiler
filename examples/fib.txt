@@ -1,0 +1,60 @@
+; Classic fibonacci sequence
+; pseudo code algorithm:
+; ```
+; a = 0
+; b = 1
+; while True:
+;   b = a + b
+;   a = -(a - b)
+; ```
+
+
+; write address 0 to MR; write 0 to address 0
+    CA
+    MOVC MR
+    WT
+
+; write address 1 to MR; write 1 to address 1
+    LDA 01
+    MOVC MR
+    WT
+
+; loop start
+; read value from address 0 and write to BR
+    CA
+    MOVC MR
+    RD
+    MOV BR
+
+; read value from address 1
+    CA
+    LDA 01
+    MOVC MR
+    RD
+
+; compute A + B; write result to address 1; move result to BR
+    ADD
+    WT
+    MOV BR
+
+; load value from address 0
+    CA
+    MOVC MR
+    RD
+
+; compute A - B; write result to BR
+    SUB
+    MOV BR
+
+; compute 0 - (A - B) effectively getting B - A
+    CA
+    SUB
+
+; write result to address 0
+    WT
+
+; loop back
+    CA
+    LDA 01
+    LDA 10
+    MOVC PC
