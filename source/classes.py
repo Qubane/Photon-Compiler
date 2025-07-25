@@ -3,8 +3,18 @@ Some helper classes
 """
 
 
+from enum import Enum
 from typing import Any
 from dataclasses import dataclass
+
+
+class Datatype(Enum):
+    """
+    Token datatype
+    """
+
+    STR = "string"
+    INT = "integer"
 
 
 @dataclass(frozen=True)
@@ -13,7 +23,7 @@ class Token:
     Token class
     """
 
-    type: str
+    type: Datatype
     value: Any
 
 
