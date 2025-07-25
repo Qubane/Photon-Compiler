@@ -4,6 +4,8 @@ Main application file
 
 
 import argparse
+from source.parser import *
+from source.compiler import *
 
 
 class Application:
@@ -47,4 +49,20 @@ class Application:
         Runs the application
         """
 
+        # parse arguments
         self.parse_cli()
+
+        # read source file
+        with open(self.parse_input_file, "r", encoding="utf-8") as file:
+            source_code = file.read()
+
+        # parse source file
+        parsed_code = Parser.parse(source_code)
+
+        # compile source code
+        compiler = Compiler()
+        compiled_code = compiler.compile(parsed_code)
+
+        # print out the result
+        for idx, token_line in enumerate(compiled_code):
+            print(f"{idx: >3}", " ".join(f"{x.value: <4}" for x in token_line.tokens))
