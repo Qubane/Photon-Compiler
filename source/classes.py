@@ -58,7 +58,7 @@ class LinkedList:
         self._iter_node: LinkedNode = self.start_node
 
         current_node = self.start_node
-        for item in iterable:
+        for item in iterable[1:]:
             # define next node
             node = LinkedNode(item)
 
