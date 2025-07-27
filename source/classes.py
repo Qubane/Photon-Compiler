@@ -8,25 +8,6 @@ from typing import Any, Union, Iterable
 from dataclasses import dataclass
 
 
-class Datatype(Enum):
-    """
-    Token datatype
-    """
-
-    STR = "string"
-    INT = "integer"
-
-
-@dataclass(frozen=True)
-class Token:
-    """
-    Token class
-    """
-
-    type: Datatype
-    value: Any
-
-
 class TokenLine(list):
     """
     Container for multiple tokens
