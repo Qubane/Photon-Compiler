@@ -65,4 +65,4 @@ class Application:
 
         # print out the result
         for idx, token_line in enumerate(compiled_code):
-            print(f"{idx: >3}", " ".join(f"{x.value: <4}" for x in token_line.tokens))
+            print(f"{idx: >3}", " ".join(f"{x: <4}" for x in token_line))
