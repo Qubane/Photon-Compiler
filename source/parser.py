@@ -33,13 +33,13 @@ class Parser:
                 continue
 
             # define token line
-            token_line = TokenLine([], line_idx)
+            token_line = TokenLine([], reference_line=line_idx)
 
             # go through each character in line
             for code_char in (code_line + " "):
                 # if space is encountered -> append new token
                 if code_char == " ":
-                    token_line.tokens.append(Token(Datatype.STR, token))
+                    token_line.append(Token(Datatype.STR, token))
                     token = ""
 
                 # otherwise append token to list
