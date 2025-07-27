@@ -33,6 +33,7 @@ class Compiler:
 
         # perform compilation stages
         self._compile_1(linked_code)
+        self._compile_2(linked_code)
 
         # return compiled code
         return [x.value for x in linked_code]
@@ -89,3 +90,8 @@ class Compiler:
             # name error
             else:
                 raise NameError("Undefined instruction", ref_line)
+
+    def _compile_2(self, code: LinkedList):
+        """
+        2nd compilation stage
+        """
