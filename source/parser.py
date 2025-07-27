@@ -39,7 +39,7 @@ class Parser:
             for code_char in (code_line + " "):
                 # if space is encountered -> append new token
                 if code_char == " ":
-                    token_line.append(Token(Datatype.STR, token))
+                    token_line.append(token)
                     token = ""
 
                 # otherwise append token to list
