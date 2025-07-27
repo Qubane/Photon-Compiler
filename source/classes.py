@@ -27,14 +27,15 @@ class Token:
     value: Any
 
 
-@dataclass
-class TokenLine:
+class TokenLine(list):
     """
     Container for multiple tokens
     """
 
-    tokens: list[Token]
-    reference_line: int = -1
+    def __init__(self, *args, reference_line: int = -1):
+        super().__init__(*args)
+
+        self.reference_line: int = reference_line
 
 
 @dataclass
@@ -75,6 +76,6 @@ class LinkedList:
     def __next__(self):
         if self._iter_node is None:
             raise StopIteration
-        value = self._iter_node.value
+        value = self._iter_node
         self._iter_node = self._iter_node.next_node
         return value
