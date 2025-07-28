@@ -142,7 +142,7 @@ class BlueprintBuilder:
                     color = "EEEEEE"
                 else:
                     color = "222222"
-                blocks.append(cls.make_block((idx, bit, 0), color))
+                blocks.append(cls.make_block((4 - bit, idx, 0), color))
         return blocks
 
     @classmethod
