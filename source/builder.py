@@ -4,9 +4,7 @@ Builds compiled code to bytecode and to scrap mechanic blueprints
 
 
 import os
-import uuid
 import json
-from PIL import Image
 from source.classes import *
 
 
@@ -72,6 +70,11 @@ class BlueprintBuilder:
     """
 
     card_block_uuid: str = "628b2d61-5ceb-43e9-8334-a4135566df7a"
+    color_4_lut: list[str] = [
+        "EEEEEE", "7F7F7F", "4A4A4A", "222222",
+        "F5F071", "E2DB13", "817C00", "323000",
+        "CBF66F", "A0EA00", "577D07", "375000",
+        "68FF88", "19E753", "0E8031", "064023"]
 
     @classmethod
     def make_block(cls, pos: tuple[int, int, int], color: str) -> dict:
@@ -117,9 +120,9 @@ class BlueprintBuilder:
             for bit in range(4):
                 bit_mask = 1 << bit
                 if (bytecode & bit_mask) > 0:
-                    color = "EEEEEE"
+                    color = cls.color_4_lut[0]
                 else:
-                    color = "222222"
+                    color = cls.color_4_lut[3]
                 blocks.append(cls.make_block((4 - bit, idx, 0), color))
         return blocks
 
@@ -130,3 +133,15 @@ class BlueprintBuilder:
         :param code: list of instructions
         :return: blueprint data
         """
+
+        blocks = []
+        for idx in range(len(code) // 4):
+            instructions = code[idx * 4:idx * 4 + 4]
+            for bit in range(4):
+                color_value = (instructions[0] & (1 << bit)) >> bit
+                color_value += ((instructions[1] & (1 << bit)) >> bit) << 1 if len(instructions) > 1 else 0
+                color_value += ((instructions[2] & (1 << bit)) >> bit) << 2 if len(instructions) > 2 else 0
+                color_value += ((instructions[3] & (1 << bit)) >> bit) << 3 if len(instructions) > 3 else 0
+
+                blocks.append(cls.make_block((4 - bit, idx, 0), cls.color_4_lut[color_value]))
+        return blocks
