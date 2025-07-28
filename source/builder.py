@@ -71,7 +71,7 @@ class BlueprintBuilder:
     Blueprint builder class
     """
 
-    card_block_uuid: str = "a6c6ce30-dd47-4587-b475-085d55c6a3b4"
+    card_block_uuid: str = "628b2d61-5ceb-43e9-8334-a4135566df7a"
 
     @classmethod
     def make_block(cls, pos: tuple[int, int, int], color: str) -> dict:
@@ -138,7 +138,7 @@ class BlueprintBuilder:
         for idx, bytecode in enumerate(code):
             for bit in range(4):
                 bit_mask = 1 << bit
-                if bytecode & bit_mask > 0:
+                if (bytecode & bit_mask) > 0:
                     color = "EEEEEE"
                 else:
                     color = "222222"
