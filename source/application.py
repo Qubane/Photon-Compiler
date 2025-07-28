@@ -6,6 +6,7 @@ Main application file
 import argparse
 from source.parser import *
 from source.compiler import *
+from source.builder import *
 
 
 class Application:
@@ -66,3 +67,8 @@ class Application:
         # print out the result
         for idx, token_line in enumerate(compiled_code):
             print(f"{idx: >3}", " ".join(f"{x: <4}" for x in token_line))
+
+        # write to blueprint
+        bytecode = AssemblyBuilder.build(compiled_code)
+        blueprint = BlueprintBuilder.make_bw4_card(bytecode)
+        BlueprintBuilder.make_raw_blueprint(blueprint, "test program")
