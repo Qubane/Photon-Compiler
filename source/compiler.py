@@ -22,6 +22,17 @@ class Compiler:
     def __init__(self):
         self._label_map: dict[str, int] = {}
 
+    def _offset_labels(self, starting: int, by: int):
+        """
+        Offsets all labels from starting index, by some amount
+        :param starting: starting index
+        :param by: offset amount
+        """
+
+        for label_key, label_value in self._label_map.items():
+            if label_value > starting:
+                self._label_map[label_key] += by
+
     def compile(self, parsed_code: list[TokenLine]) -> list[TokenLine]:
         """
         Compiles parsed code
@@ -34,7 +45,7 @@ class Compiler:
 
         # perform compilation stages
         compiled_code = self._compile_1(compiled_code)
-        # compiled_code = self._compile_2(compiled_code)
+        compiled_code = self._compile_2(compiled_code)
 
         # return compiled code
         return compiled_code
@@ -63,7 +74,7 @@ class Compiler:
                 if instruction == "lda":
                     # try converting to integer
                     try:
-                        token_line[1] = int(token_line[1])
+                        token_line[1] = int(token_line[1], 2)
                     except ValueError:
                         raise ValueError("Unable to decode numeric", ref_line)
                 elif instruction == "movc" or instruction == "mov":
@@ -105,6 +116,9 @@ class Compiler:
         2nd compilation stage
         """
 
+        # make new compiled code
+        compiled_code: list[TokenLine] = []
+
         for idx, token_line in enumerate(code):
             ref_line: int = token_line.reference_line + 1
 
@@ -112,7 +126,8 @@ class Compiler:
             instruction: str = token_line[0].lower()
 
             if instruction in self.built_ins:
-                if instruction == "jmp":
+                # unconditional jump
+                if instruction == "jmp" or instruction == "jmpc":
                     # check argument number
                     if len(token_line) < 2:
                         raise TypeError("Missing argument", ref_line)
@@ -120,3 +135,33 @@ class Compiler:
                     # check label name
                     if token_line[1] not in self._label_map:
                         raise NameError("Undefined jump label", ref_line)
+
+                    # instruction count
+                    instruction_count = len(compiled_code)
+
+                    # unroll instructions
+                    compiled_code.append(TokenLine(["CA"]))     # clear ACC
+
+                    # if it's an unconditional jump
+                    if instruction == "jmp":
+                        compiled_code.append(TokenLine(["AND"]))    # clear carry flag
+
+                    # append jump address
+                    insert_index = len(compiled_code)
+                    jump_index = self._label_map[token_line[1]]
+                    while jump_index > 0:
+                        compiled_code.insert(insert_index, TokenLine(["LDA", jump_index & 3]))
+                        jump_index >>= 2
+
+                    # append jump
+                    compiled_code.append(TokenLine(["MOVC", 2]))
+
+                    # offset other labels
+                    self._offset_labels(idx, len(compiled_code) - instruction_count)
+
+            # ignore other instructions
+            else:
+                compiled_code.append(token_line)
+
+        # return compiled code
+        return compiled_code
