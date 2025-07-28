@@ -91,7 +91,7 @@ class BlueprintBuilder:
             "zaxis": 3}
 
     @staticmethod
-    def make_raw_blueprint(blueprint: dict, name: str):
+    def make_raw_blueprint(blueprint: list, name: str):
         """
         Makes raw blueprint for scrap mechanic
         :param blueprint: blueprint data
