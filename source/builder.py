@@ -106,7 +106,7 @@ class BlueprintBuilder:
             json.dump(blueprint, file)
 
     @staticmethod
-    def make_bw4_card(code: list[TokenLine]) -> dict:
+    def make_bw4_card(code: list[int]) -> dict:
         """
         Make black&white 4 bit wide instruction program card.
         Used by Photon Mini r2
@@ -115,7 +115,7 @@ class BlueprintBuilder:
         """
 
     @staticmethod
-    def make_c4_card(code: list[TokenLine]) -> dict:
+    def make_c4_card(code: list[int]) -> dict:
         """
         Makes colored 4 bits per color; 4 bit wide instruction program card.
         :param code: list of instructions
