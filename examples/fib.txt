@@ -19,7 +19,7 @@
     MOVC MR
     WT
 
-; loop start
+fib_loop:
 ; read value from address 0 and write to BR
     CA
     MOVC MR
@@ -54,7 +54,4 @@
     WT
 
 ; loop back
-    CA
-    LDA 01
-    LDA 10
-    MOVC PC
+    JMPC fib_loop
