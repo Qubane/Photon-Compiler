@@ -71,6 +71,8 @@ class BlueprintBuilder:
     Blueprint builder class
     """
 
+    card_block_uuid: str = "a6c6ce30-dd47-4587-b475-085d55c6a3b4"
+
     @staticmethod
     def make_raw_blueprint(blueprint: dict, name: str):
         """
