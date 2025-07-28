@@ -54,4 +54,4 @@ fib_loop:
     WT
 
 ; loop back
-    JMPC fib_loop
+    JMP fib_loop
