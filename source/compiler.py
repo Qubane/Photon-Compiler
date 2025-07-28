@@ -3,7 +3,7 @@ Compiles the code
 """
 
 
-from typing import Any
+import math
 from source.classes import *
 
 
@@ -17,7 +17,7 @@ class Compiler:
     without_args: dict[str, int] = {
         "ca": 8, "add": 9, "sub": 10, "and": 11, "or": 12, "xor": 13, "rd": 14, "wt": 15}
     built_ins: set[str] = {
-        "jmp", "jmpc"}
+        "jmp", "jmpc", "halt"}
 
     def __init__(self):
         self._label_map: dict[str, int] = {}
@@ -149,6 +149,27 @@ class Compiler:
                     # append jump address
                     insert_index = len(compiled_code)
                     jump_index = self._label_map[token_line[1]]
+                    while jump_index > 0:
+                        compiled_code.insert(insert_index, TokenLine(["LDA", jump_index & 3]))
+                        jump_index >>= 2
+
+                    # append jump
+                    compiled_code.append(TokenLine(["MOVC", 2]))
+
+                    # offset other labels
+                    self._offset_labels(idx, len(compiled_code) - instruction_count)
+
+                elif instruction == "halt":
+                    # instruction count
+                    instruction_count = len(compiled_code)
+
+                    # unroll instructions
+                    compiled_code.append(TokenLine(["CA"]))  # clear ACC
+                    compiled_code.append(TokenLine(["AND"]))  # clear carry flag
+
+                    # append jump address (current index)
+                    insert_index = len(compiled_code)
+                    jump_index = len(compiled_code) + math.ceil(math.log2(len(compiled_code))) - 1
                     while jump_index > 0:
                         compiled_code.insert(insert_index, TokenLine(["LDA", jump_index & 3]))
                         jump_index >>= 2
