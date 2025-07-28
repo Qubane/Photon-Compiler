@@ -7,6 +7,7 @@ import os
 import uuid
 import json
 from PIL import Image
+from source.classes import *
 
 
 # make blueprints directory
@@ -52,3 +53,12 @@ class BlueprintBuilder:
         # dump blueprint data
         with open(f"{directory_path}/blueprint.json", "w") as file:
             json.dump(blueprint, file)
+
+    @staticmethod
+    def make_bw4_card(code: list[TokenLine]) -> dict:
+        """
+        Make black&white 4 bit wide instruction program card.
+        Used by Photon Mini r2
+        :param code: list of instructions
+        :return: blueprint data
+        """
