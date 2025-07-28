@@ -34,15 +34,36 @@ class AssemblyBuilder:
         "rd": 14,
         "wt": 15}
 
-    @staticmethod
-    def build(code: list[TokenLine]) -> list[int]:
+    @classmethod
+    def build(cls, code: list[TokenLine]) -> list[int]:
         """
         Builds instructions to bytecode
         :param code: list of instructions
         :return: bytecode
         """
 
+        # go through instructions and append the converted bytecode
+        converted_bytecode = []
+        for token_line in code:
+            instruction = token_line[0].lower()
 
+            # instruction with args
+            if instruction in {"lda", "movc", "mov"}:
+                bytecode = cls.instruction_4_lut[instruction] << 2
+                bytecode += token_line[1]
+
+            # other instructions
+            elif instruction in cls.instruction_4_lut:
+                bytecode = cls.instruction_4_lut[instruction]
+
+            # undefined instructions
+            else:
+                raise NotImplementedError
+
+            converted_bytecode.append(bytecode)
+
+        # return bytecode
+        return converted_bytecode
 
 
 class BlueprintBuilder:
