@@ -3,6 +3,7 @@ Compiles the code
 """
 
 
+from typing import Any
 from source.classes import *
 
 
@@ -16,10 +17,10 @@ class Compiler:
     without_args: dict[str, int] = {
         "ca": 8, "add": 9, "sub": 10, "and": 11, "or": 12, "xor": 13, "rd": 14, "wt": 15}
     built_ins: set[str] = {
-        "jmp"}
+        "jmp", "jmpc"}
 
     def __init__(self):
-        self._label_map: dict[str, LinkedNode] = {}
+        self._label_map: dict[str, int] = {}
 
     def compile(self, parsed_code: list[TokenLine]) -> list[TokenLine]:
         """
@@ -28,25 +29,26 @@ class Compiler:
         :return: compiled code
         """
 
-        # linked tokens
-        linked_code = LinkedList(parsed_code)
+        # compiled code
+        compiled_code = parsed_code
 
         # perform compilation stages
-        self._compile_1(linked_code)
-        self._compile_2(linked_code)
+        compiled_code = self._compile_1(compiled_code)
+        # compiled_code = self._compile_2(compiled_code)
 
         # return compiled code
-        return [x.value for x in linked_code]
+        return compiled_code
 
-    def _compile_1(self, code: LinkedList):
+    def _compile_1(self, code: list[TokenLine]) -> list[TokenLine]:
         """
         1st compilation stage
         """
 
-        for linked_line in code:
-            linked_line: LinkedNode
-            token_line: TokenLine = linked_line.value
-            ref_line: int = token_line.reference_line
+        # make new compiled code
+        compiled_code: list[TokenLine] = []
+
+        for idx, token_line in enumerate(code):
+            ref_line: int = token_line.reference_line + 1
 
             # decode instruction
             instruction: str = token_line[0].lower()
@@ -85,13 +87,36 @@ class Compiler:
             # labels
             elif instruction[-1] == ":":
                 # link label to linked node
-                self._label_map[token_line[0][:-1]] = linked_line
+                self._label_map[token_line[0][:-1]] = idx
+                continue
 
             # name error
             else:
                 raise NameError("Undefined instruction", ref_line)
 
-    def _compile_2(self, code: LinkedList):
+            # append token line
+            compiled_code.append(token_line)
+
+        # return compiled code
+        return compiled_code
+
+    def _compile_2(self, code: list[TokenLine]) -> list[TokenLine]:
         """
         2nd compilation stage
         """
+
+        for idx, token_line in enumerate(code):
+            ref_line: int = token_line.reference_line + 1
+
+            # decode instruction
+            instruction: str = token_line[0].lower()
+
+            if instruction in self.built_ins:
+                if instruction == "jmp":
+                    # check argument number
+                    if len(token_line) < 2:
+                        raise TypeError("Missing argument", ref_line)
+
+                    # check label name
+                    if token_line[1] not in self._label_map:
+                        raise NameError("Undefined jump label", ref_line)
