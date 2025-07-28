@@ -62,3 +62,11 @@ class BlueprintBuilder:
         :param code: list of instructions
         :return: blueprint data
         """
+
+    @staticmethod
+    def make_c4_card(code: list[TokenLine]) -> dict:
+        """
+        Makes colored 4 bits per color; 4 bit wide instruction program card.
+        :param code: list of instructions
+        :return: blueprint data
+        """
