@@ -15,6 +15,20 @@ if not os.path.isdir("blueprints"):
     os.mkdir("blueprints")
 
 
+class AssemblyBuilder:
+    """
+    Builds assembly code to bytecode
+    """
+
+    @staticmethod
+    def build(code: list[TokenLine]) -> list[int]:
+        """
+        Builds instructions to bytecode
+        :param code: list of instructions
+        :return: bytecode
+        """
+
+
 class BlueprintBuilder:
     """
     Blueprint builder class
