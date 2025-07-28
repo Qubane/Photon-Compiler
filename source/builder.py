@@ -135,7 +135,7 @@ class BlueprintBuilder:
         """
 
         blocks = []
-        for idx in range(len(code) // 4):
+        for idx in range(len(code) // 4 + 1):
             instructions = code[idx * 4:idx * 4 + 4]
             for bit in range(4):
                 color_value = (instructions[0] & (1 << bit)) >> bit
