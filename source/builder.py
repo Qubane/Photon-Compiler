@@ -73,6 +73,23 @@ class BlueprintBuilder:
 
     card_block_uuid: str = "a6c6ce30-dd47-4587-b475-085d55c6a3b4"
 
+    @classmethod
+    def make_block(cls, pos: tuple[int, int, int], color: str) -> dict:
+        """
+        Makes a blueprint block
+        :param pos: block integer position
+        :param color: block color
+        :return: block
+        """
+
+        return {
+            "bounds": {"x": 1, "y": 1, "z": 1},
+            "color": color,
+            "pos": {"x": pos[0], "y": pos[1], "z": pos[2]},
+            "shapeId": cls.card_block_uuid,
+            "xaxis": 1,
+            "zaxis": 3}
+
     @staticmethod
     def make_raw_blueprint(blueprint: dict, name: str):
         """
@@ -104,11 +121,12 @@ class BlueprintBuilder:
             json.dump(description, file, indent=4)
 
         # dump blueprint data
+        blueprint = {"bodies": [{"childs": blueprint}], "version": 4}
         with open(f"{directory_path}/blueprint.json", "w") as file:
             json.dump(blueprint, file)
 
-    @staticmethod
-    def make_bw4_card(code: list[int]) -> dict:
+    @classmethod
+    def make_bw4_card(cls, code: list[int]) -> list:
         """
         Make black&white 4 bit wide instruction program card.
         Used by Photon Mini r2
@@ -116,8 +134,19 @@ class BlueprintBuilder:
         :return: blueprint data
         """
 
-    @staticmethod
-    def make_c4_card(code: list[int]) -> dict:
+        blocks = []
+        for idx, bytecode in enumerate(code):
+            for bit in range(4):
+                bit_mask = 1 << bit
+                if bytecode & bit_mask > 0:
+                    color = "EEEEEE"
+                else:
+                    color = "222222"
+                blocks.append(cls.make_block((idx, bit, 0), color))
+        return blocks
+
+    @classmethod
+    def make_c4_card(cls, code: list[int]) -> list:
         """
         Makes colored 4 bits per color; 4 bit wide instruction program card.
         :param code: list of instructions
