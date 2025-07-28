@@ -20,6 +20,20 @@ class AssemblyBuilder:
     Builds assembly code to bytecode
     """
 
+    instruction_4_lut = {
+        "lda": 0,
+        "movc": 1,
+        "mov": 1,
+
+        "ca": 8,
+        "add": 9,
+        "sub": 10,
+        "and": 11,
+        "or": 12,
+        "xor": 13,
+        "rd": 14,
+        "wt": 15}
+
     @staticmethod
     def build(code: list[TokenLine]) -> list[int]:
         """
@@ -27,6 +41,8 @@ class AssemblyBuilder:
         :param code: list of instructions
         :return: bytecode
         """
+
+
 
 
 class BlueprintBuilder:
