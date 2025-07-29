@@ -17,6 +17,7 @@ class Application:
     def __init__(self):
         self.parse_input_file: str = ""
         self.parse_output_file: str = ""
+        self.parse_blueprint_type: str = ""
 
     def parse_cli(self):
         """
@@ -36,6 +37,11 @@ class Application:
         parser.add_argument(
             "-o", "--output",
             help="bytecode output file")
+        parser.add_argument(
+            "-t", "--type",
+            help="blueprint output type",
+            choices=["bw", "c4"],
+            default="bw")
 
         # parse arguments
         args = parser.parse_args()
@@ -44,6 +50,7 @@ class Application:
         self.parse_output_file = args.output
         if args.output is None:
             self.parse_output_file = self.parse_input_file + ".bin"
+        self.parse_blueprint_type = args.type
 
     def run(self):
         """
@@ -70,5 +77,10 @@ class Application:
 
         # write to blueprint
         bytecode = AssemblyBuilder.build(compiled_code)
-        blueprint = BlueprintBuilder.make_bw4_card(bytecode)
+        if self.parse_blueprint_type == "bw":
+            blueprint = BlueprintBuilder.make_bw4_card(bytecode)
+        elif self.parse_blueprint_type == "c4":
+            blueprint = BlueprintBuilder.make_c4_card(bytecode)
+        else:
+            raise NotImplementedError
         BlueprintBuilder.make_raw_blueprint(blueprint, "test program")
