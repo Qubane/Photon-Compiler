@@ -144,9 +144,6 @@ class Compiler:
                     # instruction count
                     instruction_count = len(compiled_code)
 
-                    # unroll instructions
-                    compiled_code.append(TokenLine(["CA"]))     # clear ACC
-
                     # if it's an unconditional jump
                     if instruction == "jmp":
                         compiled_code.append(TokenLine(["AND"]))    # clear carry flag
@@ -164,16 +161,10 @@ class Compiler:
                     # instruction count
                     instruction_count = len(compiled_code)
 
-                    # unroll instructions
-                    compiled_code.append(TokenLine(["CA"]))  # clear ACC
-                    compiled_code.append(TokenLine(["AND"]))  # clear carry flag
-
                     # append jump address (current index)
-                    compiled_code.append(TokenLine([
-                        "LOAD", len(compiled_code) + math.ceil(math.log2(len(compiled_code))) - 1]))
-
-                    # append jump
-                    compiled_code.append(TokenLine(["MOVC", 2]))
+                    jump_label = f"__HALT_ID_{id(token_line)}__"
+                    self._label_map[jump_label] = len(compiled_code) + math.ceil(math.log2(len(compiled_code)))
+                    compiled_code.append(TokenLine(["JMP", jump_label]))
 
                     # offset other labels
                     self._offset_labels(idx, len(compiled_code) - instruction_count)
