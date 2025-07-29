@@ -45,7 +45,12 @@ class Compiler:
 
         # perform compilation stages
         compiled_code = self._compile_1(compiled_code)
-        compiled_code = self._compile_2(compiled_code)
+
+        # iteratively apply second stage
+        old_count = 1
+        while old_count != len(compiled_code):
+            old_count = len(compiled_code)
+            compiled_code = self._compile_2(compiled_code)
 
         # return compiled code
         return compiled_code
@@ -147,11 +152,7 @@ class Compiler:
                         compiled_code.append(TokenLine(["AND"]))    # clear carry flag
 
                     # append jump address
-                    insert_index = len(compiled_code)
-                    jump_index = self._label_map[token_line[1]]
-                    while jump_index > 0:
-                        compiled_code.insert(insert_index, TokenLine(["LDA", jump_index & 3]))
-                        jump_index >>= 2
+                    compiled_code.append(TokenLine(["LOAD", self._label_map[token_line[1]]]))
 
                     # append jump
                     compiled_code.append(TokenLine(["MOVC", 2]))
@@ -168,11 +169,8 @@ class Compiler:
                     compiled_code.append(TokenLine(["AND"]))  # clear carry flag
 
                     # append jump address (current index)
-                    insert_index = len(compiled_code)
-                    jump_index = len(compiled_code) + math.ceil(math.log2(len(compiled_code))) - 1
-                    while jump_index > 0:
-                        compiled_code.insert(insert_index, TokenLine(["LDA", jump_index & 3]))
-                        jump_index >>= 2
+                    compiled_code.append(TokenLine([
+                        "LOAD", len(compiled_code) + math.ceil(math.log2(len(compiled_code))) - 1]))
 
                     # append jump
                     compiled_code.append(TokenLine(["MOVC", 2]))
@@ -191,11 +189,13 @@ class Compiler:
                     # unroll instructions
                     compiled_code.append(TokenLine(["CA"]))  # clear ACC
 
-                    # unroll load instructions
+                    # decode integer, always assume base 10
                     try:
-                        number = int(token_line[1], 10)
+                        number = int(token_line[1])
                     except ValueError:
                         raise ValueError("Unable to decode integer", ref_line)
+
+                    # insert nibble loading instructions
                     insert_index = len(compiled_code)
                     while number > 0:
                         compiled_code.insert(insert_index, TokenLine(["LDA", number & 3]))
