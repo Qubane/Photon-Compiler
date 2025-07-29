@@ -158,16 +158,13 @@ class Compiler:
                     self._offset_labels(idx, len(compiled_code) - instruction_count)
 
                 elif instruction == "halt":
-                    # instruction count
-                    instruction_count = len(compiled_code)
-
                     # append jump address (current index)
                     jump_label = f"__HALT_ID_{id(token_line)}__"
-                    self._label_map[jump_label] = len(compiled_code) + math.ceil(math.log2(len(compiled_code)))
+                    self._label_map[jump_label] = len(compiled_code) + 2
+                    offset = int(math.log2(self._label_map[jump_label])) // 2 + 1
+                    offset = int(math.log2(self._label_map[jump_label] + offset)) // 2 + 1
+                    self._label_map[jump_label] += offset
                     compiled_code.append(TokenLine(["JMP", jump_label]))
-
-                    # offset other labels
-                    self._offset_labels(idx, len(compiled_code) - instruction_count)
 
                 elif instruction == "load":
                     # check argument number
