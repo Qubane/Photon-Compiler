@@ -17,7 +17,7 @@ class Compiler:
     without_args: dict[str, int] = {
         "ca": 8, "add": 9, "sub": 10, "and": 11, "or": 12, "xor": 13, "rd": 14, "wt": 15}
     built_ins: set[str] = {
-        "jmp", "jmpc", "halt"}
+        "jmp", "jmpc", "halt", "load"}
 
     def __init__(self):
         self._label_map: dict[str, int] = {}
@@ -176,6 +176,30 @@ class Compiler:
 
                     # append jump
                     compiled_code.append(TokenLine(["MOVC", 2]))
+
+                    # offset other labels
+                    self._offset_labels(idx, len(compiled_code) - instruction_count)
+
+                elif instruction == "load":
+                    # check argument number
+                    if len(token_line) < 2:
+                        raise TypeError("Missing argument", ref_line)
+
+                    # instruction count
+                    instruction_count = len(compiled_code)
+
+                    # unroll instructions
+                    compiled_code.append(TokenLine(["CA"]))  # clear ACC
+
+                    # unroll load instructions
+                    try:
+                        number = int(token_line[1], 10)
+                    except ValueError:
+                        raise ValueError("Unable to decode integer", ref_line)
+                    insert_index = len(compiled_code)
+                    while number > 0:
+                        compiled_code.insert(insert_index, TokenLine(["LDA", number & 3]))
+                        number >>= 2
 
                     # offset other labels
                     self._offset_labels(idx, len(compiled_code) - instruction_count)
