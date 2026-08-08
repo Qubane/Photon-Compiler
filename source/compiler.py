@@ -1,200 +1,580 @@
 """
-Compiles the code
+Simple compiler for Photon CPU
 """
 
 
-import math
-from source.classes import *
+from copy import deepcopy
+
+
+COMPILER_SPACERS = {
+    " "}
+COMPILER_SPECIAL_CHARS = {
+    ":", "\n", ";", "#",
+    "+", "-", "*", "/", "(", ")",
+    "=", "<", ">"}
+COMPILER_BUILT_INS = {
+    "if", "else", "for", "while", "end"}
+COMPILER_INSTRUCTION_SET = [
+    "LDAR",
+    "LDAR",
+    "LDAL",
+    "LDAL",
+    "MOVC",
+    "MOVC",
+    "MOVC",
+    "MOV",
+    "CA",
+    "ADD",
+    "SUB",
+    "AND",
+    "OR",
+    "XOR",
+    "RD",
+    "WT"]
+COMPILER_INSTRUCTION_SET_MAPPER = {x: idx for idx, x in enumerate(COMPILER_INSTRUCTION_SET)}
+
+
+def code_to_tokens(code: str) -> list[str]:
+    """
+    Separates code string to token sequence
+    :param code: code
+    :return: list of tokens
+    """
+
+    output = []
+    token = ""
+    for char in code:
+        if char in COMPILER_SPACERS or char in COMPILER_SPECIAL_CHARS:
+            if token:
+                output.append(token)
+                token = ""
+            if char in COMPILER_SPECIAL_CHARS:
+                output.append(char)
+        else:
+            token += char
+    if token:
+        output.append(token)
+
+    return output
+
+
+def infix_to_rpn(expression: str) -> list[str]:
+    """
+    Converts an infix math string to reverse polish notation string
+    :param expression: expression
+    :return: RPN string
+    """
+
+    # order of operation
+    precedence = {
+        "=": 0,
+        ">": 1,
+        "<": 1,
+        "+": 2,
+        "-": 2,
+        "*": 3,
+        "/": 3,
+        "**": 4,
+    }
+
+    # operator associativity
+    associativity = {
+        "=": "R",
+        ">": "L",
+        "<": "L",
+        "+": "L",
+        "-": "L",
+        "*": "L",
+        "/": "L",
+        "**": "R",
+    }
+
+    tokens = code_to_tokens(expression)
+
+    output = []
+    stack = []
+
+    for token in tokens:
+        if token not in COMPILER_SPECIAL_CHARS:
+            output.append(token)
+        elif token == "(":
+            stack.append(token)
+        elif token == ")":
+            # pop from stack until opening parenthesis is found
+            while stack and stack[-1] != "(":
+                output.append(stack.pop())
+            stack.pop()  # remove the remaining parenthesis
+        else:
+            while stack and stack[-1] != "(" and (
+                    precedence[stack[-1]] > precedence[token] or
+                    (precedence[stack[-1]] == precedence[token] and associativity[token] == 'L')
+            ):
+                output.append(stack.pop())
+            stack.append(token)
+    output += stack[::-1]
+
+    return output
+
+
+def tokens_to_structs(tokens: list[str]) -> list[list[str]]:
+    """
+    Converts list of tokens to small structures
+    :param tokens: list of tokens
+    :return: structs
+    """
+
+    tokens = deepcopy(tokens)
+
+    output = []
+    stack = []
+    while tokens:
+        token = tokens.pop(0)
+
+        if token == "\n":
+            # dump line to output
+            if stack:
+                output.append(stack[::])
+            stack.clear()
+        elif token == "#":
+            # skip over the line
+            while (_ := tokens.pop(0)) != "\n":
+                pass
+        else:
+            stack.append(token)
+    if stack:
+        output.append(stack)
+    return output
 
 
 class Compiler:
-    """
-    Compiler class
-    """
-
-    with_args: dict[str, int] = {
-        "lda": 0, "movc": 1, "mov": 1}
-    without_args: dict[str, int] = {
-        "ca": 8, "add": 9, "sub": 10, "and": 11, "or": 12, "xor": 13, "rd": 14, "wt": 15}
-    built_ins: set[str] = {
-        "jmp", "jmpc", "halt", "load"}
-
     def __init__(self):
-        self._label_map: dict[str, int] = {}
+        self.output: list[str] = []
 
-    def _offset_labels(self, starting: int, by: int):
+        self.memory_counter: int = 0
+        self.memory_assignment: dict[str, int] = {}
+
+        self.temp_var: str = "__temp__"
+        self.ensure_variable(self.temp_var)
+        self.swap_var: str = "__swap__"
+        self.ensure_variable(self.swap_var)
+
+    def push(self, asm: str):
+        self.output += asm.split(" ")
+
+    def ensure_variable(self, var: str):
+        if var not in self.memory_assignment:
+            self.memory_assignment[var] = self.memory_counter
+            self.memory_counter += 1
+
+    def load_number(self, number: str | int):
         """
-        Offsets all labels from starting index, by some amount
-        :param starting: starting index
-        :param by: offset amount
-        """
-
-        for label_key, label_value in self._label_map.items():
-            if label_value > starting:
-                self._label_map[label_key] += by
-
-    def compile(self, parsed_code: list[TokenLine]) -> list[TokenLine]:
-        """
-        Compiles parsed code
-        :param parsed_code: parsed code
-        :return: compiled code
-        """
-
-        # compiled code
-        compiled_code = parsed_code
-
-        # perform compilation stages
-        compiled_code = self._compile_1(compiled_code)
-
-        # iteratively apply second stage
-        old_count = 1
-        while old_count != len(compiled_code):
-            old_count = len(compiled_code)
-            compiled_code = self._compile_2(compiled_code)
-
-        # return compiled code
-        return compiled_code
-
-    def _compile_1(self, code: list[TokenLine]) -> list[TokenLine]:
-        """
-        1st compilation stage
+        Generates code for loading an integer
+        :param number: number
         """
 
-        # make new compiled code
-        compiled_code: list[TokenLine] = []
+        # clear ACC
+        self.push("CA")
 
-        for idx, token_line in enumerate(code):
-            ref_line: int = token_line.reference_line + 1
+        # compute the nibbles
+        number = int(number) & 0xFF
+        if number == 0:
+            return
+        nibbles = [(number & (1 << x)) >> x for x in range(7, -1, -1)]
 
-            # decode instruction
-            instruction: str = token_line[0].lower()
+        # count same nibbles from right side
+        from_right = 0
+        first_nibble = nibbles[-1]
+        for nibble in nibbles[::-1]:
+            if nibble == first_nibble:
+                from_right += 1
+            else:
+                break
 
-            # check instructions with args
-            if instruction in self.with_args:
-                # check for correct number of arguments
-                if len(token_line) < 2:
-                    raise TypeError("Missing argument", ref_line)
+        # count same nibbles from left side
+        from_left = 0
+        first_nibble = nibbles[0]
+        for nibble in nibbles:
+            if nibble == first_nibble:
+                from_left += 1
+            else:
+                break
 
-                # check for correct arguments
-                if instruction == "lda":
-                    # try converting to integer
-                    try:
-                        token_line[1] = int(token_line[1], 2)
-                    except ValueError:
-                        raise ValueError("Unable to decode numeric", ref_line)
-                elif instruction == "movc" or instruction == "mov":
-                    # check for correct destination
-                    destination = token_line[1].lower()
-                    if destination == "br" and instruction == "movc":  # conditional move to br
-                        token_line[1] = 0
-                    elif destination == "mr":
-                        token_line[1] = 1
-                    elif destination == "pc":
-                        token_line[1] = 2
-                    elif destination == "br" and instruction == "mov":  # unconditional move to br
-                        token_line[1] = 3
+        # use the smaller one
+        if from_right < from_left:
+            for nibble in nibbles[::-1][:8-from_left]:
+                self.push(f"LDAR {nibble}")
+        else:
+            for nibble in nibbles[:8-from_right]:
+                self.push(f"LDAL {nibble}")
+
+    def load_mr(self, addr: str | int):
+        """
+        Generates code for loading address into MR (Memory Register)
+        :param addr: address
+        """
+
+        self.push("AND")  # clear carry
+        self.load_number(addr)  # load address number
+        self.push("MOVC MR")  # move to MR
+
+    def load_var_mr(self, var: str):
+        """
+        Generated code for loading variable address into MR (Memory Register)
+        :param var: variable
+        """
+
+        self.load_mr(self.memory_assignment[var])
+
+    def move_var_to_var(self, var1: str, var2: str):
+        """
+        Generates code for moving var1 to var2
+        :param var1: variable 1
+        :param var2: variable 2
+        """
+
+        self.load_var_mr(var1)  # load address of var1
+        self.push("RD")  # read value of var1
+
+        self.push("MOV BR")  # move to BR
+
+        self.load_var_mr(var2)  # load address of var2
+        self.push("CA")  # clear ACC
+        self.push("XOR")  # move BR to ACC
+
+        self.push("WT")  # write var1 to var2
+
+    def load_auto(self, token: str):
+        """
+        Generates code to automatically load token (either variable or number)
+        :param token: token
+        """
+
+        if token == "__ACC__":
+            return
+
+        if not token.isnumeric() and token not in self.memory_assignment:
+            raise Exception("Variable called before being assigned")
+
+        if token.isnumeric():
+            self.load_number(token)
+        else:
+            self.load_var_mr(token)
+            self.push("RD")
+
+    def convert_infix(self, line: list[str]):
+        """
+        Generates code to convert infix mathematical expression
+        :param line: math
+        """
+
+        stack = []
+        line = infix_to_rpn("".join(line))
+        while line and (token := line.pop(0)):
+            if token not in COMPILER_SPECIAL_CHARS:
+                stack.append(token)
+                if len(stack) >= 4 and stack[-3] == "__ACC__":
+                    self.push("MOV BR")  # move ACC to BR
+                    self.load_var_mr(self.temp_var)
+                    self.push("CA XOR WT")  # move BR to ACC and write
+                    stack[-3] = self.temp_var
+            else:
+                # fetch var1 and var2
+                var1 = stack.pop()
+                var2 = stack.pop()  # must be ACC or other number
+
+                swapped = False
+                if var1 == "__ACC__":
+                    swapped = True
+                    var1, var2 = var2, var1
+
+                if token == "+":
+                    self.load_auto(var2)
+                    self.push("MOV BR")
+                    self.load_auto(var1)
+                    self.push("ADD")
+                    stack.append("__ACC__")
+                elif token == "-":
+                    self.load_auto(var2)
+                    self.push("MOV BR")
+                    self.load_auto(var1)
+                    self.push("SUB")
+                    if not swapped:
+                        self.push("MOV BR CA SUB")
+                    stack.append("__ACC__")
+                elif token == ">" or token == "<":
+                    if (not swapped and token == ">") or (swapped and token == "<"):
+                        self.load_auto(var2)
+                        self.push("MOV BR")
+                        self.load_auto(var1)
+                        self.push("SUB")
                     else:
-                        raise NameError("Undefined destination", ref_line)
+                        self.load_auto(var2)
+                        self.push("MOV BR")
+                        self.load_var_mr(self.swap_var)
+                        self.push("CA XOR WT")
+                        self.load_auto(var1)
+                        self.push("MOV BR")
+                        self.load_var_mr(self.swap_var)
+                        self.push("CA RD SUB")
 
-            # name check argless and built ins
-            elif instruction in self.without_args or instruction in self.built_ins:
-                pass
+                    # carry = 0 => A >  B; ACC >= 0; BR = B
+                    # carry = 1 => A <= B; ACC >  0; BR = B
 
-            # labels
-            elif instruction[-1] == ":":
-                # link label to linked node
-                self._label_map[token_line[0][:-1]] = idx
-                continue
+                    self.push("CA MOV BR")  # ACC = 0; BR = 0; carry = ?
+                    self.push("LDAR 1")
+                    self.push("MOVC BR")
 
-            # name error
-            else:
-                raise NameError("Undefined instruction", ref_line)
+                    # carry = 0 => ACC = 1; BR = 1
+                    # carry = 1 => ACC = 1; BR = 0
+                    self.push("XOR")
+                    stack.append("__ACC__")
+                elif token == "=":
+                    self.push("MOV BR")
+                    self.ensure_variable(var1)
+                    self.load_var_mr(var1)
+                    self.push("CA XOR")  # put BR into ACC
+                    self.push("WT")  # write var2 into var1
 
-            # append token line
-            compiled_code.append(token_line)
-
-        # return compiled code
-        return compiled_code
-
-    def _compile_2(self, code: list[TokenLine]) -> list[TokenLine]:
+    @staticmethod
+    def line_merge(asm: list[str]) -> list[list[str]]:
         """
-        2nd compilation stage
+        Merges lines of code
+        :param asm: asm
+        :return: merged code
         """
 
-        # make new compiled code
-        compiled_code: list[TokenLine] = []
-
-        for idx, token_line in enumerate(code):
-            ref_line: int = token_line.reference_line + 1
-
-            # decode instruction
-            instruction: str = token_line[0].lower()
-
-            if instruction in self.built_ins:
-                # unconditional jump
-                if instruction == "jmp" or instruction == "jmpc":
-                    # check argument number
-                    if len(token_line) < 2:
-                        raise TypeError("Missing argument", ref_line)
-
-                    # check label name
-                    if token_line[1] not in self._label_map:
-                        raise NameError("Undefined jump label", ref_line)
-
-                    # instruction count
-                    instruction_count = len(compiled_code)
-
-                    # if it's an unconditional jump
-                    if instruction == "jmp":
-                        compiled_code.append(TokenLine(["AND"]))    # clear carry flag
-
-                    # append jump address
-                    compiled_code.append(TokenLine(["LOAD", self._label_map[token_line[1]]]))
-
-                    # append jump
-                    compiled_code.append(TokenLine(["MOVC", 2]))
-
-                    # offset other labels
-                    self._offset_labels(idx, len(compiled_code) - instruction_count)
-
-                elif instruction == "halt":
-                    # append jump address (current index)
-                    jump_label = f"__HALT_ID_{id(token_line)}__"
-                    self._label_map[jump_label] = len(compiled_code) + 2
-                    offset = int(math.log2(self._label_map[jump_label])) // 2 + 1
-                    offset = int(math.log2(self._label_map[jump_label] + offset)) // 2 + 1
-                    self._label_map[jump_label] += offset
-                    compiled_code.append(TokenLine(["JMP", jump_label]))
-
-                elif instruction == "load":
-                    # check argument number
-                    if len(token_line) < 2:
-                        raise TypeError("Missing argument", ref_line)
-
-                    # instruction count
-                    instruction_count = len(compiled_code)
-
-                    # unroll instructions
-                    compiled_code.append(TokenLine(["CA"]))  # clear ACC
-
-                    # decode integer, always assume base 10
-                    try:
-                        number = int(token_line[1])
-                    except ValueError:
-                        raise ValueError("Unable to decode integer", ref_line)
-
-                    # insert nibble loading instructions
-                    insert_index = len(compiled_code)
-                    while number > 0:
-                        compiled_code.insert(insert_index, TokenLine(["LDA", number & 3]))
-                        number >>= 2
-
-                    # offset other labels
-                    self._offset_labels(idx, len(compiled_code) - instruction_count)
-
-            # ignore other instructions
+        output = []
+        asm = asm[::]
+        while asm and (instruction := asm.pop(0)):
+            if COMPILER_INSTRUCTION_SET_MAPPER[instruction] < 8:
+                output.append([instruction, asm.pop(0)])
             else:
-                compiled_code.append(token_line)
+                output.append([instruction])
+        return output
 
-        # return compiled code
-        return compiled_code
+    @staticmethod
+    def code_optimize(asm: list[list[str]]) -> list[list[str]]:
+        """
+        Optimises the generated code
+        """
+
+        new_output = []
+        asm = deepcopy(asm)
+
+        acc = 0    # ACC
+        br = 0     # BR
+        mr = 0     # MR
+        cf = 0     # CF
+
+        acc_known = False
+        br_known = False
+        mr_known = False
+        cf_known = False
+
+        while asm and (line := asm.pop(0)):
+            # fetch instruction
+            if COMPILER_INSTRUCTION_SET_MAPPER[line[0]] < 8:
+                instruction, operand = line
+            else:
+                instruction = line[0]
+                operand = 0
+
+            if acc_known:
+                acc &= 0xFF
+            match instruction:
+                case "LDAR":
+                    if acc_known:
+                        acc = (acc << 1) | int(operand)
+                    new_output.append(line)
+                case "LDAL":
+                    if acc_known:
+                        acc = (acc >> 1) | (int(operand) << 7)
+                    new_output.append(line)
+                case "MOVC":
+                    if operand == "BR":
+                        # if either ACC, BR or CF are unknown
+                        # or the ACC != BR and CF != 0
+                        if not (acc_known and br_known and cf_known and acc == br and cf == 0):
+                            new_output.append(line)
+                            br_known = False
+
+                        # if ACC is known and CF == 0
+                        # then BR must be equal to ACC
+                        if acc_known and cf_known and cf == 0:
+                            br_known = True
+                            br = acc
+                    elif operand == "MR":
+                        # if either ACC, MR or CF are unknown
+                        # or the ACC != MR and CF != 0
+                        if not (acc_known and mr_known and cf_known and acc == mr and cf == 0):
+                            new_output.append(line)
+                            mr_known = False
+
+                        # if ACC is known and CF == 0
+                        # then MR must be equal to ACC
+                        if acc_known and cf_known and cf == 0:
+                            mr_known = True
+                            mr = acc
+                    elif operand == "PC":
+                        new_output.append(line)
+                case "MOV":
+                    # if either ACC is unknown or ACC != BR
+                    if not (acc_known and acc == br):
+                        new_output.append(line)
+                        br_known = False
+
+                    # if ACC is known, then BR must be equal ACC
+                    if acc_known:
+                        br_known = True
+                        br = acc
+                case "CA":
+                    # if either ACC is not known or ACC != 0
+                    if not (acc_known and acc == 0):
+                        new_output.append(line)
+
+                    # we know ACC must be equal to 0 now
+                    acc_known = True
+                    acc = 0
+                case "ADD":
+                    # if either ACC, BR or CF are not known
+                    # or BR != 0 (aka not ACC + 0)
+                    if not (acc_known and br_known and cf_known and br == 0):
+                        new_output.append(line)
+                        acc_known = False
+                        cf_known = False
+
+                    # if ACC and BR are known, then ACC must equal ACC + BR
+                    # and then CF must be known as well
+                    if acc_known and br_known:
+                        acc += br
+                        cf_known = True
+                        if acc > 255:
+                            cf = 1
+                        else:
+                            cf = 0
+                case "SUB":
+                    # if either ACC, BR or CF are not known
+                    # or BR != 0 (aka not ACC - 0)
+                    if not (acc_known and br_known and cf_known and br == 0):
+                        new_output.append(line)
+                        acc_known = False
+                        cf_known = False
+
+                    # if ACC and BR are known, then ACC must equal ACC - BR
+                    # and then CF must be known as well
+                    if acc_known and br_known:
+                        acc -= br
+                        cf_known = True
+                        if acc < 0:
+                            cf = 1
+                        else:
+                            cf = 0
+                case "AND":
+                    # if either ACC, BR or CF are not known
+                    if not (acc_known and br_known and cf_known):
+                        new_output.append(line)
+                        acc_known = False
+
+                    # from CPU definition
+                    cf_known = True
+                    cf = 0
+
+                    # if ACC and BR are known, then ACC must equal ACC & BR
+                    if acc_known and br_known:
+                        acc &= br
+
+                    # if BR is known to be 0, then ACC must equal 0 (since any number & 0 is 0)
+                    if br_known and br == 0:
+                        acc_known = True
+                        acc = 0
+                case "OR":
+                    # if either ACC, BR or CF are not known
+                    if not (acc_known and br_known and cf_known):
+                        new_output.append(line)
+                        acc_known = False
+
+                    # from CPU definition
+                    cf_known = True
+                    cf = 0
+
+                    # if ACC and BR are known, then ACC must equal ACC | BR
+                    if acc_known and br_known:
+                        acc |= br
+                case "XOR":
+                    # if either ACC, BR or CF are not known
+                    if not (acc_known and br_known and cf_known):
+                        new_output.append(line)
+                        acc_known = False
+
+                    # from CPU definition
+                    cf_known = True
+                    cf = 0
+
+                    # if ACC and BR are known, then ACC must equal ACC ^ BR
+                    if acc_known and br_known:
+                        acc ^= br
+                case "RD":
+                    new_output.append(line)
+                    acc_known = False
+                case "WT":
+                    new_output.append(line)
+
+        ptr = -1
+        while ptr < len(new_output)-1:
+            ptr += 1
+            if COMPILER_INSTRUCTION_SET_MAPPER[new_output[ptr][0]] < 4:
+                if ptr >= 1 and new_output[ptr-1][0] == new_output[ptr+1][0] == "CA":
+                    new_output.pop(ptr)
+                    new_output.pop(ptr)
+                    ptr -= 2
+
+        return new_output
+
+    def compile(self, structs: list[list[str]]) -> list[list[str]]:
+        """
+        Compiles structs into asm code
+        :param structs: token struct
+        :return: asm sequence
+        """
+
+        structs = deepcopy(structs)
+        while structs and (line := structs.pop(0)):
+            # assignment
+            if len(line) >= 2 and line[1] == "=":
+                # simple assignment
+                if len(line) == 3:
+                    if not line[2].isnumeric() and line[2] not in self.memory_assignment:
+                        raise Exception("Variable called before being assigned")
+
+                    # assign variable and increment memory counter
+                    self.ensure_variable(line[0])
+
+                    # store variable
+                    if line[2].isnumeric():
+                        self.load_var_mr(line[0])  # load variable address
+                        self.load_number(line[2])  # load number itself
+                        self.push("WT")  # write number at variable address
+                    else:
+                        self.move_var_to_var(line[2], line[0])
+
+                # complex assignment
+                else:
+                    self.convert_infix(line)
+
+            # if statement
+            elif line[0] == "if":
+                condition = line[1:]
+                stack = []
+                while (line := structs.pop(0))[0] != "end":
+                    stack.append(line)
+                self.convert_infix(condition)  # generate code for condition
+                print(condition, stack)
+
+        # do final steps
+        asm = self.line_merge(self.output)
+        print(asm)
+        asm = self.code_optimize(asm)
+        print(asm)
+
+        # return
+        return asm
