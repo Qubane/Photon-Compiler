@@ -168,7 +168,7 @@ class Compiler:
         self.output: list[PhotonIS] = []
 
         self.bit_width: int = 8
-        self.max_int: int = 2**self.bit_width - 1
+        self._max_int: int = 2 ** self.bit_width - 1
 
         self.variable_counter: int = 0
         self.variable_mapper: dict[str, int] = {}
@@ -213,7 +213,7 @@ class Compiler:
         """
 
         self.add("CA")
-        num = int(num) & self.max_int
+        num = int(num) & self._max_int
         if num == 0:
             return
         nibbles = [(num & (1 << x)) >> x for x in range(self.bit_width-1, -1, -1)]
@@ -596,7 +596,7 @@ class Compiler2:
                         if acc_known and cf_known and cf == 0:
                             mr_known = True
                             mr = acc
-                    elif operand == "PC":
+                    elif operand == "PR":
                         new_output.append(line)
                 case "MOV":
                     # if either ACC is unknown or ACC != BR
