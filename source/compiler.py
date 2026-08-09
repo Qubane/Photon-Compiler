@@ -2,8 +2,10 @@
 Simple compiler for Photon CPU
 """
 
+
 from copy import deepcopy
 from source.classes import PhotonIS
+
 
 COMPILER_SPACERS = {
     " "}
