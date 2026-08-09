@@ -2,36 +2,21 @@
 Simple compiler for Photon CPU
 """
 
-
 from copy import deepcopy
-
+from source.classes import PhotonIS
 
 COMPILER_SPACERS = {
-    " ", ";"}
+    " "}
+COMPILER_LINE_SPACER = "\n"
+COMPILER_COMMENT_OPERATOR = "#"
 COMPILER_OPERATORS = {
-    ":", "\n", "#",
-    "+", "-", "*", "/", "(", ")", "<<", ">>", "&", "|", "^",
-    "=", "<", ">"}
+    ":", ";",
+    "+", "-", "*", "/", "(", ")", "<<", ">>", "&", "|", "^", "=",
+    "==", "<", ">"}
+COMPILER_OPERATORS.add(COMPILER_LINE_SPACER)
+COMPILER_OPERATORS.add(COMPILER_COMMENT_OPERATOR)
 COMPILER_BUILT_INS = {
     "if", "else", "for", "while", "end"}
-COMPILER_INSTRUCTION_SET = [
-    "LDAR",
-    "LDAR",
-    "LDAL",
-    "LDAL",
-    "MOVC",
-    "MOVC",
-    "MOVC",
-    "MOV",
-    "CA",
-    "ADD",
-    "SUB",
-    "AND",
-    "OR",
-    "XOR",
-    "RD",
-    "WT"]
-COMPILER_INSTRUCTION_SET_MAPPER = {x: idx for idx, x in enumerate(COMPILER_INSTRUCTION_SET)}
 
 
 class Lexer:
@@ -48,28 +33,61 @@ class Lexer:
         """
 
         # find overlaps
-        operator_overlaps = {x[0]: x for x in COMPILER_OPERATORS if (x[0] != x and x[0] in COMPILER_OPERATORS)}
+        operator_overlaps = {x[0] for x in COMPILER_OPERATORS if (x[0] != x and x[0] in COMPILER_OPERATORS)}
 
         # do magic
-        output = []
+        idx = 0
         token = ""
-        for idx, char in enumerate(code):
-            # if char is a spacer
-            if char in COMPILER_SPACERS:
+        output = []
+        while idx < len(code) and (char := code[idx]):
+            idx += 1
+            if char in COMPILER_SPACERS or char in COMPILER_OPERATORS:
                 if token:
                     output.append(token)
                     token = ""
-
-            # for non overlapping operators
-            elif char in COMPILER_OPERATORS and char not in operator_overlaps:
-                if token:
-                    output.append(token)
-                    token = ""
-                output.append(char)
+                if char in COMPILER_OPERATORS:
+                    # if the operator overlaps, search for longest one the code may cover
+                    if char in operator_overlaps:
+                        max_len = 0
+                        operator = ""
+                        for op in COMPILER_OPERATORS:
+                            if code[idx-1:idx+len(op)-1] == op and len(op) > max_len:
+                                operator = op
+                                max_len = len(op)
+                        output.append(operator)
+                        idx += max_len - 1
+                    else:
+                        output.append(char)
             else:
                 token += char
 
         # output
+        return output
+
+    @staticmethod
+    def tokens_to_struct(tokens: list[str]) -> list[list[str]]:
+        """
+        Converts token sequence into a sequence of token lines
+        :param tokens: token list
+        :return: token struct
+        """
+
+        tokens = deepcopy(tokens)
+
+        stack = []
+        output = []
+        while tokens and (token := tokens.pop(0)):
+            if token == COMPILER_LINE_SPACER:
+                if stack:
+                    output.append(stack[::])
+                    stack.clear()
+            elif token == COMPILER_COMMENT_OPERATOR:
+                while tokens.pop(0) != COMPILER_LINE_SPACER:
+                    pass
+            else:
+                stack.append(token)
+        if stack:
+            output.append(stack)
         return output
 
 
@@ -216,10 +234,10 @@ class Compiler:
 
         # use the smaller one
         if from_right < from_left:
-            for nibble in nibbles[::-1][:8-from_left]:
+            for nibble in nibbles[::-1][:8 - from_left]:
                 self.push(f"LDAR {nibble}")
         else:
-            for nibble in nibbles[:8-from_right]:
+            for nibble in nibbles[:8 - from_right]:
                 self.push(f"LDAL {nibble}")
 
     def load_mr(self, addr: str | int):
@@ -376,10 +394,10 @@ class Compiler:
         new_output = []
         asm = deepcopy(asm)
 
-        acc = 0    # ACC
-        br = 0     # BR
-        mr = 0     # MR
-        cf = 0     # CF
+        acc = 0  # ACC
+        br = 0  # BR
+        mr = 0  # MR
+        cf = 0  # CF
 
         acc_known = False
         br_known = False
@@ -535,10 +553,10 @@ class Compiler:
                     new_output.append(line)
 
         ptr = -1
-        while ptr < len(new_output)-1:
+        while ptr < len(new_output) - 1:
             ptr += 1
             if COMPILER_INSTRUCTION_SET_MAPPER[new_output[ptr][0]] < 4:
-                if ptr >= 1 and new_output[ptr-1][0] == new_output[ptr+1][0] == "CA":
+                if ptr >= 1 and new_output[ptr - 1][0] == new_output[ptr + 1][0] == "CA":
                     new_output.pop(ptr)
                     new_output.pop(ptr)
                     ptr -= 2
