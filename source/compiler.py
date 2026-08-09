@@ -149,36 +149,6 @@ def infix_to_rpn(expression: str) -> list[str]:
     return output
 
 
-def tokens_to_structs(tokens: list[str]) -> list[list[str]]:
-    """
-    Converts list of tokens to small structures
-    :param tokens: list of tokens
-    :return: structs
-    """
-
-    tokens = deepcopy(tokens)
-
-    output = []
-    stack = []
-    while tokens:
-        token = tokens.pop(0)
-
-        if token == "\n":
-            # dump line to output
-            if stack:
-                output.append(stack[::])
-            stack.clear()
-        elif token == "#":
-            # skip over the line
-            while (_ := tokens.pop(0)) != "\n":
-                pass
-        else:
-            stack.append(token)
-    if stack:
-        output.append(stack)
-    return output
-
-
 class Compiler:
     def __init__(self):
         self.output: list[str] = []
