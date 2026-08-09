@@ -41,5 +41,13 @@ class PhotonIS(IntEnum):
     RD = 14
     WT = 15
 
+    def __repr__(self):
+        if self.value > 8:
+            return self.name
+        return self.name.replace("_", " ")
+
+    def __str__(self):
+        return self.__repr__()
+
 
 PHOTON_INSTRUCTION_SET = {PhotonIS(x).name.split("_")[0]: x for x in range(16)}
