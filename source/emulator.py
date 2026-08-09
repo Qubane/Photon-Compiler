@@ -3,76 +3,110 @@ Simple emulator for Photon CPU
 """
 
 
+from source.classes import *
+
+
 class Emulator:
     def __init__(self):
         self.ACC: int = 0
         self.BR: int = 0
         self.MR: int = 0
-        self.PC: int = 0
-
+        self.PR: int = 0
         self.CF: bool = False
 
-        self.memory: list[int] = [0 for _ in range(256)]
+        self.bit_width: int = 8
+        self._max_int: int = 2 ** self.bit_width - 1
 
-    def execute(self, asm: list[list[str]]):
+        self.memory: list[int] = [0 for _ in range(self._max_int)]
+
+        self._instruction_mapper = [
+            self._asm_lar_0,
+            self._asm_lar_1,
+            self._asm_lal_0,
+            self._asm_lal_1,
+            self._asm_movc_br,
+            self._asm_movc_mr,
+            self._asm_movc_pr,
+            self._asm_mov_br,
+            self._asm_ca,
+            self._asm_add,
+            self._asm_sub,
+            self._asm_and,
+            self._asm_or,
+            self._asm_xor,
+            self._asm_rd,
+            self._asm_wt]
+
+    def _asm_lar_0(self):
+        self.ACC <<= 1
+
+    def _asm_lar_1(self):
+        self.ACC = (self.ACC << 1) | 1
+
+    def _asm_lal_0(self):
+        self.ACC >>= 1
+
+    def _asm_lal_1(self):
+        self.ACC = (self.ACC >> 1) | (1 << (self.bit_width - 1))
+
+    def _asm_movc_br(self):
+        if self.CF:
+            self.BR = self.ACC
+
+    def _asm_movc_mr(self):
+        if self.CF:
+            self.MR = self.ACC
+
+    def _asm_movc_pr(self):
+        if self.CF:
+            self.PR = self.ACC
+
+    def _asm_mov_br(self):
+        self.BR = self.ACC
+
+    def _asm_ca(self):
+        self.ACC = 0
+
+    def _asm_add(self):
+        self.ACC += self.BR
+        if self.ACC > self._max_int:
+            self.CF = True
+        else:
+            self.CF = False
+
+    def _asm_sub(self):
+        self.ACC -= self.BR
+        if self.ACC < 0:
+            self.CF = True
+        else:
+            self.CF = False
+
+    def _asm_and(self):
+        self.ACC &= self.BR
+
+    def _asm_or(self):
+        self.ACC |= self.BR
+
+    def _asm_xor(self):
+        self.ACC ^= self.BR
+
+    def _asm_rd(self):
+        self.ACC = self.memory[self.MR]
+
+    def _asm_wt(self):
+        self.memory[self.MR] = self.ACC
+
+    def execute(self, asm: list[PhotonIS]):
         """
         Executes the assembly instructions
         :param asm: assembly
         """
 
         instruction_count = 0
-        while self.PC < len(asm):
+        while self.PR < len(asm):
             instruction_count += 1
 
-            # fetch instruction
-            if len(asm[self.PC]) == 2:
-                instruction, operand = asm[self.PC]
-            else:
-                instruction = asm[self.PC][0]
-                operand = 0
-
-            self.ACC &= 0xFF  # ensure 255 range
-            match instruction:
-                case "LDAR":
-                    self.ACC = (self.ACC << 1) | int(operand)
-                case "LDAL":
-                    self.ACC = (self.ACC >> 1) | (int(operand) << 7)
-                case "MOVC":
-                    if operand == "BR" and not self.CF:
-                        self.BR = self.ACC
-                    elif operand == "MR" and not self.CF:
-                        self.MR = self.ACC
-                    elif operand == "PC" and not self.CF:
-                        self.PC = self.ACC - 1
-                case "MOV":
-                    self.BR = self.ACC
-                case "CA":
-                    self.ACC = 0
-                case "ADD":
-                    self.ACC += self.BR
-                    if self.ACC > 255:
-                        self.CF = True
-                    else:
-                        self.CF = False
-                case "SUB":
-                    self.ACC -= self.BR
-                    if self.ACC < 0:
-                        self.CF = True
-                    else:
-                        self.CF = False
-                case "AND":
-                    self.ACC &= self.BR
-                    self.CF = False
-                case "OR":
-                    self.ACC |= self.BR
-                    self.CF = False
-                case "XOR":
-                    self.ACC ^= self.BR
-                    self.CF = False
-                case "RD":
-                    self.ACC = self.memory[self.MR]
-                case "WT":
-                    self.memory[self.MR] = self.ACC
-
-            self.PC += 1
+            self.ACC &= self._max_int
+            self._instruction_mapper[asm[self.PR].value]()
+            self.PR += 1
         print(f"Done in {instruction_count} instructions")
