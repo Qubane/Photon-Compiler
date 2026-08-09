@@ -167,6 +167,9 @@ class Compiler:
     def __init__(self):
         self.output: list[PhotonIS] = []
 
+        self.bit_width: int = 8
+        self.max_int: int = 2**self.bit_width - 1
+
         self.variable_counter: int = 0
         self.variable_mapper: dict[str, int] = {}
 
@@ -202,6 +205,126 @@ class Compiler:
                 self.output.append(getattr(PhotonIS, instruction))
             else:
                 self.output.append(getattr(PhotonIS, token))
+
+    def load_acc(self, num: str | int) -> None:
+        """
+        Generate code to load num to ACC
+        :param num: number to load
+        """
+
+        self.add("CA")
+        num = int(num) & self.max_int
+        if num == 0:
+            return
+        nibbles = [(num & (1 << x)) >> x for x in range(self.bit_width-1, -1, -1)]
+
+        # count same nibbles from right side
+        from_right = 0
+        first_nibble = nibbles[-1]
+        for nibble in nibbles[::-1]:
+            if nibble == first_nibble:
+                from_right += 1
+            else:
+                break
+
+        # count same nibbles from left side
+        from_left = 0
+        first_nibble = nibbles[0]
+        for nibble in nibbles:
+            if nibble == first_nibble:
+                from_left += 1
+            else:
+                break
+
+        # use the smaller one
+        if from_right < from_left:
+            for nibble in nibbles[::-1][:self.bit_width - from_left]:
+                self.add(f"LAR {nibble}")
+        else:
+            for nibble in nibbles[:self.bit_width - from_right]:
+                self.add(f"LAL {nibble}")
+
+    def load_mr(self, num: str | int) -> None:
+        """
+        Load Memory Register
+        :param num: number
+        """
+
+        self.add("AND")
+        self.load_acc(num)
+        self.add("MOVC MR")
+
+    def load_var_addr(self, var: str) -> None:
+        """
+        Load variable address
+        :param var: variable name
+        """
+
+        self.load_acc(self.variable_mapper[var])
+
+    def load_var_to_mr(self, var: str) -> None:
+        """
+        Load variable address to MR
+        :param var: variable name
+        """
+
+        self.load_mr(self.variable_mapper[var])
+
+    def load_var(self, var: str):
+        """
+        Loads variable
+        :param var: variable name
+        """
+
+        self.load_var_to_mr(var)
+        self.add("RD")
+
+    def load_auto(self, x: str) -> None:
+        """
+        Automatically load X
+        :param x: variable name or int
+        """
+
+        if x == "__ACC__":
+            return
+
+        if x.isnumeric():
+            self.load_acc(x)
+        else:
+            self.load_var(x)
+
+    def compile(self, asm: list[list[str]]) -> list[PhotonIS]:
+        """
+        Compiles the given assembly code structure
+        :param asm: assembly struct
+        :return: bytecode
+        """
+
+        asm = deepcopy(asm)
+        while asm and (line := asm.pop(0)):
+            if len(line) >= 2 and line[1] == "=":
+                # simple assignment
+                if len(line) == 3:
+                    if not line[2].isnumeric() and line[2] not in self.variable_mapper:
+                        raise Exception("Variable called before being assigned")
+
+                    # assign variable and increment memory counter
+                    self.allocate_var(line[0])
+
+                    # store variable
+                    self.load_var_to_mr(line[0])
+                    self.load_auto(line[2])
+                    self.add("WT")
+
+                # complex assignment
+                else:
+                    ...
+            elif line[0] == "if":
+                condition = line[1:]
+                stack = []
+                while (line := asm.pop(0))[0] != "end":
+                    stack.append(line)
+        return self.output
 
 
 class Compiler2:
