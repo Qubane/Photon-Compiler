@@ -4,7 +4,7 @@ Simple compiler for Photon CPU
 
 
 from copy import deepcopy
-from source.classes import PhotonIS
+from source.classes import *
 
 
 COMPILER_SPACERS = {
@@ -160,6 +160,51 @@ class Lexer:
 
 
 class Compiler:
+    """
+    Main Compiler class
+    """
+
+    def __init__(self):
+        self.output: list[PhotonIS] = []
+
+        self.variable_counter: int = 0
+        self.variable_mapper: dict[str, int] = {}
+
+        self.temp_var: str = "__temp__"
+        self.swap_var: str = "__swap__"
+        self.allocate_var(self.temp_var)
+        self.allocate_var(self.swap_var)
+
+    def allocate_var(self, var: str) -> None:
+        """
+        Allocates a variable
+        :param var: variable name
+        """
+
+        if var not in self.variable_mapper:
+            self.variable_mapper[var] = self.variable_counter
+            self.variable_counter += 1
+
+    def add(self, asm: str) -> None:
+        """
+        Adds new instruction to output
+        :param asm: sequence of assembly instructions
+        """
+
+        asm = asm.split(" ")
+        while asm and (token := asm.pop(0)):
+            if token not in PHOTON_INSTRUCTION_SET:
+                raise Exception("Instruction not found")
+
+            # instructions with operand
+            if PHOTON_INSTRUCTION_SET[token] < 8:
+                instruction = f"{token}_{asm.pop(0)}"
+                self.output.append(getattr(PhotonIS, instruction))
+            else:
+                self.output.append(getattr(PhotonIS, token))
+
+
+class Compiler2:
     def __init__(self):
         self.output: list[str] = []
 
