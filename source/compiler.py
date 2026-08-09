@@ -90,63 +90,71 @@ class Lexer:
             output.append(stack)
         return output
 
+    @staticmethod
+    def infix_to_rpn(expression: str) -> list[str]:
+        """
+        Infix math notation to reverse polish notation
+        :param expression: infix string
+        :return: rpn token sequence
+        """
 
-def infix_to_rpn(expression: str) -> list[str]:
-    """
-    Converts an infix math string to reverse polish notation string
-    :param expression: expression
-    :return: RPN string
-    """
+        # convert expression to tokens
+        expression = Lexer.code_to_tokens(expression)
 
-    # order of operation
-    precedence = {
-        "=": 0,
-        ">": 1,
-        "<": 1,
-        "+": 2,
-        "-": 2,
-        "*": 3,
-        "/": 3,
-        "**": 4,
-    }
+        # lowest -> highest
+        precedence = {
+            "=": 0,
+            ">": 1,
+            "<": 1,
+            "==": 1,
+            "|": 2,
+            "^": 3,
+            "&": 4,
+            "<<": 5,
+            ">>": 5,
+            "+": 6,
+            "-": 6,
+            "*": 7,
+            "/": 7,
+            "**": 8}
 
-    # operator associativity
-    associativity = {
-        "=": "R",
-        ">": "L",
-        "<": "L",
-        "+": "L",
-        "-": "L",
-        "*": "L",
-        "/": "L",
-        "**": "R",
-    }
+        associativity = {
+            "=": "R",
+            ">": "L",
+            "<": "L",
+            "==": "L",
+            "|": "L",
+            "^": "L",
+            "&": "L",
+            "<<": "R",
+            ">>": "R",
+            "+": "L",
+            "-": "L",
+            "*": "L",
+            "/": "L",
+            "**": "R"}
 
-    tokens = code_to_tokens(expression)
-
-    output = []
-    stack = []
-
-    for token in tokens:
-        if token not in COMPILER_OPERATORS:
-            output.append(token)
-        elif token == "(":
-            stack.append(token)
-        elif token == ")":
-            # pop from stack until opening parenthesis is found
-            while stack and stack[-1] != "(":
-                output.append(stack.pop())
-            stack.pop()  # remove the remaining parenthesis
-        else:
-            while stack and stack[-1] != "(" and (
-                    precedence[stack[-1]] > precedence[token] or
-                    (precedence[stack[-1]] == precedence[token] and associativity[token] == 'L')
-            ):
-                output.append(stack.pop())
-            stack.append(token)
-    output += stack[::-1]
-
-    return output
+        stack = []
+        output = []
+        for token in expression:
+            if token not in COMPILER_OPERATORS:
+                output.append(token)
+            elif token == "(":
+                stack.append(token)
+            elif token == ")":
+                # pop from stack until opening parenthesis is found
+                while stack and stack[-1] != "(":
+                    output.append(stack.pop())
+                stack.pop()  # remove the remaining parenthesis
+            else:
+                while stack and stack[-1] != "(" and (
+                        precedence[stack[-1]] > precedence[token] or
+                        (precedence[stack[-1]] == precedence[token] and associativity[token] == 'L')
+                ):
+                    output.append(stack.pop())
+                stack.append(token)
+        output += stack[::-1]
+        return output
 
 
 class Compiler:
