@@ -7,10 +7,10 @@ from copy import deepcopy
 
 
 COMPILER_SPACERS = {
-    " "}
-COMPILER_SPECIAL_CHARS = {
-    ":", "\n", ";", "#",
-    "+", "-", "*", "/", "(", ")",
+    " ", ";"}
+COMPILER_OPERATORS = {
+    ":", "\n", "#",
+    "+", "-", "*", "/", "(", ")", "<<", ">>", "&", "|", "^",
     "=", "<", ">"}
 COMPILER_BUILT_INS = {
     "if", "else", "for", "while", "end"}
@@ -34,28 +34,43 @@ COMPILER_INSTRUCTION_SET = [
 COMPILER_INSTRUCTION_SET_MAPPER = {x: idx for idx, x in enumerate(COMPILER_INSTRUCTION_SET)}
 
 
-def code_to_tokens(code: str) -> list[str]:
+class Lexer:
     """
-    Separates code string to token sequence
-    :param code: code
-    :return: list of tokens
+    Reads the input, and converts it into simple sequence
     """
 
-    output = []
-    token = ""
-    for char in code:
-        if char in COMPILER_SPACERS or char in COMPILER_SPECIAL_CHARS:
-            if token:
-                output.append(token)
-                token = ""
-            if char in COMPILER_SPECIAL_CHARS:
+    @staticmethod
+    def code_to_tokens(code: str) -> list[str]:
+        """
+        Converts code into tokens
+        :param code: code
+        :return: list of tokens
+        """
+
+        # find overlaps
+        operator_overlaps = {x[0]: x for x in COMPILER_OPERATORS if (x[0] != x and x[0] in COMPILER_OPERATORS)}
+
+        # do magic
+        output = []
+        token = ""
+        for idx, char in enumerate(code):
+            # if char is a spacer
+            if char in COMPILER_SPACERS:
+                if token:
+                    output.append(token)
+                    token = ""
+
+            # for non overlapping operators
+            elif char in COMPILER_OPERATORS and char not in operator_overlaps:
+                if token:
+                    output.append(token)
+                    token = ""
                 output.append(char)
-        else:
-            token += char
-    if token:
-        output.append(token)
+            else:
+                token += char
 
-    return output
+        # output
+        return output
 
 
 def infix_to_rpn(expression: str) -> list[str]:
@@ -95,7 +110,7 @@ def infix_to_rpn(expression: str) -> list[str]:
     stack = []
 
     for token in tokens:
-        if token not in COMPILER_SPECIAL_CHARS:
+        if token not in COMPILER_OPERATORS:
             output.append(token)
         elif token == "(":
             stack.append(token)
@@ -270,7 +285,7 @@ class Compiler:
         stack = []
         line = infix_to_rpn("".join(line))
         while line and (token := line.pop(0)):
-            if token not in COMPILER_SPECIAL_CHARS:
+            if token not in COMPILER_OPERATORS:
                 stack.append(token)
                 if len(stack) >= 4 and stack[-3] == "__ACC__":
                     self.push("MOV BR")  # move ACC to BR
