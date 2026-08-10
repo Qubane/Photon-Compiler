@@ -207,17 +207,17 @@ class Compiler:
         :param offset: offset
         """
 
-        for idx, index_tuple in enumerate(self.jump_indices):
-            if offset > 1:
-                if index >= index_tuple[0]:
-                    self.jump_indices[idx] = (self.jump_indices[idx][0] + offset, self.jump_indices[idx][1])
-                if index >= index_tuple[1]:
-                    self.jump_indices[idx] = (self.jump_indices[idx][0], self.jump_indices[idx][1] + offset)
+        for idx, (start, end) in enumerate(self.jump_indices):
+            if offset > 0:
+                if index <= start:
+                    self.jump_indices[idx] = (start + offset, end)
+                if index < end:
+                    self.jump_indices[idx] = (start, end + offset)
             else:
-                if index <= index_tuple[0]:
-                    self.jump_indices[idx] = (self.jump_indices[idx][0] + offset, self.jump_indices[idx][1])
-                if index <= index_tuple[1]:
-                    self.jump_indices[idx] = (self.jump_indices[idx][0], self.jump_indices[idx][1] + offset)
+                if index >= start:
+                    self.jump_indices[idx] = (start + offset, end)
+                if index > end:
+                    self.jump_indices[idx] = (start, end + offset)
 
     def add_jump_index(self, start: int, end: int) -> None:
         """
@@ -400,7 +400,7 @@ class Compiler:
                     self.add("MOV BR")
                     self.load_auto(var1)
                     self.add("SUB")
-                    if swapped:
+                    if not swapped:
                         self.add("MOV BR CA SUB")
                     variable_stack.append("__ACC__")
                 elif token == ">" or token == "<":
@@ -467,12 +467,10 @@ class Compiler:
             output_left, output_right = self.output[:start], self.output[start:]
             self.output = output_left
 
-            # calculate initial added instruction length
-            # then recalculate the added length, with added length in mind as well (since numbers can carry)
-            added_length = len(self.nibble_loading(end - start + 128)[0]) + 2
-            added_length = len(self.nibble_loading(end - start + 128 + added_length)[0]) + 2
-
-            self.load_acc(end - start + 128 + added_length)
+            # for now just static number address load, cuz variable length of instructions is a bitch to account for
+            number = end - start + 128 + 1
+            nibbles = [(number & (1 << x)) >> x for x in range(self.bit_width - 1, -1, -1)]
+            self.add(" ".join(f"LAR {x}" for x in nibbles))
             self.add("MOVC PR")
 
             self.output += output_right
