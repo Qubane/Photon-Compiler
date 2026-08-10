@@ -260,17 +260,15 @@ class Compiler:
         new_len = len(self.output)
         self.update_jump_indices(old_len, new_len - old_len)
 
-    def load_acc(self, num: str | int) -> None:
+    def nibble_loading(self, num: str | int) -> tuple[list[int], str]:
         """
-        Generate code to load num to ACC
-        :param num: number to load
+        Nibble loading order
+        :param num: number
+        :return: nibbles, 'L' or 'R' for left and right ordering
         """
 
-        self.add("CA")
         num = int(num) & self._max_int
-        if num == 0:
-            return
-        nibbles = [(num & (1 << x)) >> x for x in range(self.bit_width-1, -1, -1)]
+        nibbles = [(num & (1 << x)) >> x for x in range(self.bit_width - 1, -1, -1)]
 
         # count same nibbles from right side
         from_right = 0
@@ -290,17 +288,29 @@ class Compiler:
             else:
                 break
 
-        # use the smaller one
         if from_right < from_left:
             if first_nibble_left == 1:
                 from_left = 0
-            for nibble in nibbles[::-1][:self.bit_width - from_left]:
-                self.add(f"LAR {nibble}")
+            return nibbles[from_left:], "R"
         else:
             if first_nibble_right == 1:
                 from_right = 0
-            for nibble in nibbles[:self.bit_width - from_right]:
-                self.add(f"LAL {nibble}")
+            return nibbles[::-1][from_right:], "L"
+
+    def load_acc(self, num: str | int) -> None:
+        """
+        Generate code to load num to ACC
+        :param num: number to load
+        """
+
+        self.add("CA")
+        if int(num) == 0:
+            return
+        nibbles, order = self.nibble_loading(num)
+        if order == "L":
+            self.add(" ".join(f"LAL {x}" for x in nibbles))
+        else:
+            self.add(" ".join(f"LAR {x}" for x in nibbles))
 
     def load_mr(self, num: str | int) -> None:
         """
@@ -457,7 +467,12 @@ class Compiler:
             output_left, output_right = self.output[:start], self.output[start:]
             self.output = output_left
 
-            self.load_acc(end - start + 128)
+            # calculate initial added instruction length
+            # then recalculate the added length, with added length in mind as well (since numbers can carry)
+            added_length = len(self.nibble_loading(end - start + 128)[0]) + 2
+            added_length = len(self.nibble_loading(end - start + 128 + added_length)[0]) + 2
+
+            self.load_acc(end - start + 128 + added_length)
             self.add("MOVC PR")
 
             self.output += output_right
