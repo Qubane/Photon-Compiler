@@ -210,14 +210,14 @@ class Compiler:
         for idx, index_tuple in enumerate(self.jump_indices):
             if offset > 1:
                 if index >= index_tuple[0]:
-                    self.jump_indices[idx] += offset
+                    self.jump_indices[idx] = (self.jump_indices[idx][0] + offset, self.jump_indices[idx][1])
                 if index >= index_tuple[1]:
-                    self.jump_indices[idx] += offset
+                    self.jump_indices[idx] = (self.jump_indices[idx][0], self.jump_indices[idx][1] + offset)
             else:
                 if index <= index_tuple[0]:
-                    self.jump_indices[idx] += offset
+                    self.jump_indices[idx] = (self.jump_indices[idx][0] + offset, self.jump_indices[idx][1])
                 if index <= index_tuple[1]:
-                    self.jump_indices[idx] += offset
+                    self.jump_indices[idx] = (self.jump_indices[idx][0], self.jump_indices[idx][1] + offset)
 
     def add_jump_index(self, start: int, end: int) -> None:
         """
@@ -324,7 +324,7 @@ class Compiler:
 
         self.load_mr(self.variable_mapper[var])
 
-    def load_var(self, var: str):
+    def load_var(self, var: str) -> None:
         """
         Loads variable
         :param var: variable name
@@ -443,6 +443,11 @@ class Compiler:
                     self.allocate_var(var1)
                     self.load_var_to_mr(var1)
                     self.add("CA XOR WT")
+
+    def _compile_generate_jumps(self) -> None:
+        """
+        Generate jump instructions
+        """
 
     def compile(self, asm: list[list[str]]) -> list[PhotonIS]:
         """
