@@ -62,6 +62,8 @@ class Lexer:
                         output.append(char)
             else:
                 token += char
+        if token:
+            output.append(token)
 
         # output
         return output
@@ -164,7 +166,7 @@ class Compiler:
     Main Compiler class
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.output: list[PhotonIS] = []
 
         self.bit_width: int = 8
@@ -178,6 +180,16 @@ class Compiler:
         self.allocate_var(self.temp_var)
         self.allocate_var(self.swap_var)
 
+        self.jump_indices: list[tuple[int, int]] = []
+
+        for name, value in kwargs.items():
+            setattr(self, name, value)
+
+    def __copy__(self):
+        _dict = deepcopy(self.__dict__)
+        _dict.pop("output")
+        return self.__class__(**_dict)
+
     def allocate_var(self, var: str) -> None:
         """
         Allocates a variable
@@ -188,12 +200,52 @@ class Compiler:
             self.variable_mapper[var] = self.variable_counter
             self.variable_counter += 1
 
+    def update_jump_indices(self, index: int, offset: int = 1) -> None:
+        """
+        Updates the jump indices after a given index
+        :param index: instruction line index
+        :param offset: offset
+        """
+
+        for idx, index_tuple in enumerate(self.jump_indices):
+            if offset > 1:
+                if index >= index_tuple[0]:
+                    self.jump_indices[idx] += offset
+                if index >= index_tuple[1]:
+                    self.jump_indices[idx] += offset
+            else:
+                if index <= index_tuple[0]:
+                    self.jump_indices[idx] += offset
+                if index <= index_tuple[1]:
+                    self.jump_indices[idx] += offset
+
+    def add_jump_index(self, start: int, end: int) -> None:
+        """
+        Adds a new jump index
+        :param start: start index
+        :param end: end index
+        """
+
+        self.jump_indices.append((start, end))
+
+    def merge(self, instructions: list[PhotonIS]) -> None:
+        """
+        Merges 2 instruction lists
+        :param instructions: list of instructions
+        """
+
+        old_len = len(self.output)
+        self.output += instructions
+        new_len = len(self.output)
+        self.update_jump_indices(old_len, new_len - old_len)
+
     def add(self, asm: str) -> None:
         """
         Adds new instruction to output
         :param asm: sequence of assembly instructions
         """
 
+        old_len = len(self.output)
         asm = asm.split(" ")
         while asm and (token := asm.pop(0)):
             if token not in PHOTON_INSTRUCTION_SET:
@@ -205,6 +257,8 @@ class Compiler:
                 self.output.append(getattr(PhotonIS, instruction))
             else:
                 self.output.append(getattr(PhotonIS, token))
+        new_len = len(self.output)
+        self.update_jump_indices(old_len, new_len - old_len)
 
     def load_acc(self, num: str | int) -> None:
         """
@@ -355,7 +409,7 @@ class Compiler:
                     # carry = 1 => A <= B; ACC >  0; BR = B
 
                     self.add("CA MOV BR")  # ACC = 0; BR = 0; carry = ?
-                    self.add("LDAR 1")
+                    self.add("LAR 1")
                     self.add("MOVC BR")
 
                     # carry = 0 => ACC = 1; BR = 1
@@ -421,6 +475,17 @@ class Compiler:
                 stack = []
                 while (line := asm.pop(0))[0] != "end":
                     stack.append(line)
+                self.convert_infix(condition)
+                self.add("MOV BR CA SUB")
+                # if CF == 1 then ACC was 1 => don't skip 'if'
+                # if CF == 0 then ACC was 0 => skip 'if'
+
+                start_index = len(self.output)
+                # merge compiled instructions from copy of current compiler
+                self.merge(self.__copy__().compile(stack))
+                end_index = len(self.output)
+                self.add_jump_index(start_index, end_index)
+
         return self.output
 
 
