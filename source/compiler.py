@@ -293,6 +293,103 @@ class Compiler:
         else:
             self.load_var(x)
 
+    def convert_infix(self, expression: list[str]) -> None:
+        """
+        Converts infix to instructions
+        :param expression: infix expression
+        """
+
+        variable_stack = []
+        expression = Lexer.infix_to_rpn("".join(expression))
+        while expression and (token := expression.pop(0)):
+            if token not in COMPILER_OPERATORS:
+                variable_stack.append(token)
+
+                # if the previous accumulator value is going to be replaced
+                if len(variable_stack) >= 4 and variable_stack[-3] == "__ACC__":
+                    self.add("MOV BR")
+                    self.load_var_to_mr(self.temp_var)
+                    self.add("CA XOR WT")
+                    variable_stack[-3] = self.temp_var
+            else:
+                var1 = variable_stack.pop()
+                var2 = variable_stack.pop()
+
+                # make sure var2 always contains token __ACC__
+                swapped = False
+                if var1 == "__ACC__":
+                    var1, var2 = var2, var1
+                    swapped = True
+
+                if token == "+":
+                    self.load_auto(var2)
+                    self.add("MOV BR")
+                    self.load_auto(var1)
+                    self.add("ADD")
+                    variable_stack.append("__ACC__")
+                elif token == "-":
+                    self.load_auto(var2)
+                    self.add("MOV BR")
+                    self.load_auto(var1)
+                    self.add("SUB")
+                    if swapped:
+                        self.add("MOV BR CA SUB")
+                    variable_stack.append("__ACC__")
+                elif token == ">" or token == "<":
+                    if (not swapped and token == ">") or (swapped and token == "<"):
+                        self.load_auto(var2)
+                        self.add("MOV BR")
+                        self.load_auto(var1)
+                        self.add("SUB")
+                    else:
+                        self.load_auto(var2)
+                        self.add("MOV BR")
+                        self.load_var_to_mr(self.swap_var)
+                        self.add("CA XOR WT")
+                        self.load_auto(var1)
+                        self.add("MOV BR")
+                        self.load_var_to_mr(self.swap_var)
+                        self.add("CA RD SUB")
+
+                    # carry = 0 => A >  B; ACC >= 0; BR = B
+                    # carry = 1 => A <= B; ACC >  0; BR = B
+
+                    self.add("CA MOV BR")  # ACC = 0; BR = 0; carry = ?
+                    self.add("LDAR 1")
+                    self.add("MOVC BR")
+
+                    # carry = 0 => ACC = 1; BR = 1
+                    # carry = 1 => ACC = 1; BR = 0
+                    self.add("XOR")
+                    variable_stack.append("__ACC__")
+                elif token == "<<":
+                    ...
+                elif token == ">>":
+                    ...
+                elif token == "&":
+                    self.load_auto(var2)
+                    self.add("MOV BR")
+                    self.load_auto(var1)
+                    self.add("AND")
+                    variable_stack.append("__ACC__")
+                elif token == "|":
+                    self.load_auto(var2)
+                    self.add("MOV BR")
+                    self.load_auto(var1)
+                    self.add("OR")
+                    variable_stack.append("__ACC__")
+                elif token == "^":
+                    self.load_auto(var2)
+                    self.add("MOV BR")
+                    self.load_auto(var1)
+                    self.add("XOR")
+                    variable_stack.append("__ACC__")
+                elif token == "=":
+                    self.add("MOV BR")
+                    self.allocate_var(var1)
+                    self.load_var_to_mr(var1)
+                    self.add("CA XOR WT")
+
     def compile(self, asm: list[list[str]]) -> list[PhotonIS]:
         """
         Compiles the given assembly code structure
@@ -318,7 +415,7 @@ class Compiler:
 
                 # complex assignment
                 else:
-                    ...
+                    self.convert_infix(line)
             elif line[0] == "if":
                 condition = line[1:]
                 stack = []
