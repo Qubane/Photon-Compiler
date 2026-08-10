@@ -50,15 +50,15 @@ class Emulator:
         self.ACC = (self.ACC >> 1) | (1 << (self.bit_width - 1))
 
     def _asm_movc_br(self):
-        if self.CF:
+        if not self.CF:
             self.BR = self.ACC
 
     def _asm_movc_mr(self):
-        if self.CF:
+        if not self.CF:
             self.MR = self.ACC
 
     def _asm_movc_pr(self):
-        if self.CF:
+        if not self.CF:
             self.PR += self.ACC - 128
 
     def _asm_mov_br(self):
