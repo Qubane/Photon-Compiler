@@ -3,12 +3,15 @@ from source.compiler import *
 from source.emulator import *
 
 
-test = """
+test1 = """
 a=10
 b = 40
 c = ((b + 2) - a)
 
 d = a
+
+e = 1 << 2
+f = (a << 1) | b
 
 # random if check for no reason
 if a + b > c
@@ -22,27 +25,35 @@ end
 """
 
 test2 = """
-a = 0
+a = 11
 b = 10
 
 if a > b
     b = a - 1
 end
+
+b = a + b
+"""
+
+test3 = """
+a = 1 << 2
 """
 
 
 def main():
-    tokens = code_to_tokens(test2)
-    tok_struct = tokens_to_structs(tokens)
+    tokens = Lexer.code_to_tokens(test2)
+    structs = Lexer.tokens_to_struct(tokens)
+
+    print(tokens)
+    print(structs)
 
     compiler = Compiler()
-    asm = compiler.compile(tok_struct)
-    print(tokens)
-    print(tok_struct)
-    print(asm)
+    compiled = compiler.compile(structs)
+
+    print(compiled)
 
     emulator = Emulator()
-    emulator.execute(asm)
+    emulator.execute(compiled)
 
 
 if __name__ == '__main__':
