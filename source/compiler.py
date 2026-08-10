@@ -274,27 +274,31 @@ class Compiler:
 
         # count same nibbles from right side
         from_right = 0
-        first_nibble = nibbles[-1]
+        first_nibble_right = nibbles[-1]
         for nibble in nibbles[::-1]:
-            if nibble == first_nibble:
+            if nibble == first_nibble_right:
                 from_right += 1
             else:
                 break
 
         # count same nibbles from left side
         from_left = 0
-        first_nibble = nibbles[0]
+        first_nibble_left = nibbles[0]
         for nibble in nibbles:
-            if nibble == first_nibble:
+            if nibble == first_nibble_left:
                 from_left += 1
             else:
                 break
 
         # use the smaller one
         if from_right < from_left:
+            if first_nibble_left == 1:
+                from_left = 0
             for nibble in nibbles[::-1][:self.bit_width - from_left]:
                 self.add(f"LAR {nibble}")
         else:
+            if first_nibble_right == 1:
+                from_right = 0
             for nibble in nibbles[:self.bit_width - from_right]:
                 self.add(f"LAL {nibble}")
 
@@ -449,6 +453,15 @@ class Compiler:
         Generate jump instructions
         """
 
+        for idx, (start, end) in enumerate(self.jump_indices):
+            output_left, output_right = self.output[:start], self.output[start:]
+            self.output = output_left
+
+            self.load_acc(end - start + 128)
+            self.add("MOVC PR")
+
+            self.output += output_right
+
     def compile(self, asm: list[list[str]]) -> list[PhotonIS]:
         """
         Compiles the given assembly code structure
@@ -490,6 +503,8 @@ class Compiler:
                 self.merge(self.__copy__().compile(stack))
                 end_index = len(self.output)
                 self.add_jump_index(start_index, end_index)
+
+        self._compile_generate_jumps()
 
         return self.output
 
