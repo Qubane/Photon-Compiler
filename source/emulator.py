@@ -59,7 +59,7 @@ class Emulator:
 
     def _asm_movc_pr(self):
         if not self.CF:
-            self.PR += self.ACC - 128
+            self.PR += self.ACC - 128 - 1
 
     def _asm_mov_br(self):
         self.BR = self.ACC
