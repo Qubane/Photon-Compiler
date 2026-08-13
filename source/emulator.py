@@ -17,7 +17,7 @@ class Emulator:
         self.bit_width: int = 8
         self._max_int: int = 2 ** self.bit_width - 1
 
-        self.memory: list[int] = [0 for _ in range(self._max_int)]
+        self.memory: list[int] = [0 for _ in range(2**self.bit_width)]
 
         self._instruction_mapper = [
             self._asm_lar_0,
@@ -59,7 +59,7 @@ class Emulator:
 
     def _asm_movc_pr(self):
         if not self.CF:
-            self.PR += self.ACC - 128
+            self.PR += self.ACC - 2**(self.bit_width - 1)
 
     def _asm_mov_br(self):
         self.BR = self.ACC
