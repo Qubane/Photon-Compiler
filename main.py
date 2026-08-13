@@ -40,9 +40,17 @@ test3 = """
 a = 1 << 2
 """
 
+test4 = """
+a = 0
+
+while a < 10
+    a = a + 1
+end
+"""
+
 
 def main():
-    tokens = Lexer.code_to_tokens(test2)
+    tokens = Lexer.code_to_tokens(test4)
     structs = Lexer.tokens_to_struct(tokens)
 
     print(tokens)

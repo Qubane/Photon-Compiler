@@ -253,19 +253,26 @@ class Compiler:
                 from_right = 0
             return nibbles[::-1][from_right:], "L"
 
-    def load_acc(self, num: str | int) -> None:
+    def load_acc(self, num: str | int, optimal: bool = True) -> None:
         """
         Generate code to load num to ACC
         :param num: number to load
+        :param optimal: load using optimal amount of instructions
         """
 
-        self.add("CA")
+        if optimal:
+            self.add("CA")
         if int(num) == 0:
             return
-        nibbles, order = self.nibble_loading(num)
-        if order == "L":
-            self.add(" ".join(f"LAL {x}" for x in nibbles))
+        if optimal:
+            nibbles, order = self.nibble_loading(num)
+            if order == "L":
+                self.add(" ".join(f"LAL {x}" for x in nibbles))
+            else:
+                self.add(" ".join(f"LAR {x}" for x in nibbles))
         else:
+            num = int(num) & self._max_int
+            nibbles = [(num & (1 << x)) >> x for x in range(self.bit_width - 1, -1, -1)]
             self.add(" ".join(f"LAR {x}" for x in nibbles))
 
     def load_mr(self, num: str | int) -> None:
@@ -462,32 +469,68 @@ class Compiler:
                 # if CF == 1 then ACC was 1 => don't skip 'if'
                 # if CF == 0 then ACC was 0 => skip 'if'
 
-                # compile the code inside the 'if'
+                # compile the code inside the if clause
                 compiler_if = self.__copy__()
                 compiler_if.compile(stack)
 
-                # if there's an 'else'
+                # if there's an else clause
                 compiled_else = []
                 if has_else:
                     stack = []
                     while (line := asm.pop(0))[0] not in {"end", "else"}:
                         stack.append(line)
 
-                    # compile code inside 'else'
+                    # compile code inside else clause
                     compiled_else = self.__copy__().compile(stack)
 
-                    # add code to 'if' for jumping over the 'else' code
+                    # add code to if clause for jumping over the else clause
                     # without condition
                     compiler_if.add("XOR XOR")
                     compiler_if.load_pr(len(compiled_else))
 
-                # generate jump to skip the 'if'
+                # generate jump to skip the if clause
                 self.load_pr(len(compiler_if.output))
 
-                # append the 'if' code
+                # append the if clause
                 self.output += compiler_if.output
 
-                # append the 'else' code
+                # append the else clause
                 self.output += compiled_else
+            elif line[0] == "while":
+                condition = line[1:]
+                stack = []
+                while (line := asm.pop(0))[0] != "end":
+                    stack.append(line)
+
+                # get jump index before the condition
+                pre_condition_index = len(self.output)
+
+                # generate condition
+                self.convert_infix(condition)
+                self.add("MOV BR CA SUB")
+
+                # compile the while clause
+                compiler = self.__copy__()
+                compiler.compile(stack)
+
+                # create static instruction length unconditional jump
+                # offset is formed by:
+                # 1. length of code added by while clause (including this jump itself)
+                # 2. length of the condition section (including the jump over the while loop)
+                # then offset must become a negative one, since we are jumping back
+                jump_offset = len(compiler.output) + self.bit_width + 1
+                jump_offset += 1  # the AND instruction to get rid of carry flag for MOVC PR instruction
+                jump_offset += len(self.output) - pre_condition_index + self.bit_width + 1
+                jump_offset = 2**(self.bit_width - 1) - jump_offset
+
+                compiler.add("AND")
+                compiler.load_acc(jump_offset, optimal=False)
+                compiler.add("MOVC PR")
+
+                # create conditional jump over the while clause
+                self.load_pr(len(compiler.output))
+
+                # add the while clause code
+                self.output += compiler.output
 
         return self.output
