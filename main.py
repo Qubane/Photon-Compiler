@@ -48,9 +48,23 @@ while a < 10
 end
 """
 
+test5 = """
+i = 0
+
+a = 0
+b = 1
+
+while i < 10
+    b = a + b
+    a = b - a
+    
+    i = i + 1
+end
+"""
+
 
 def main():
-    tokens = Lexer.code_to_tokens(test4)
+    tokens = Lexer.code_to_tokens(test5)
     structs = Lexer.tokens_to_struct(tokens)
 
     print(tokens)
