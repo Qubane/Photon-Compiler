@@ -4,6 +4,7 @@ from source.emulator import *
 
 
 test1 = """
+# if statement test
 a = 9
 b = 10
 
@@ -16,6 +17,7 @@ end
 """
 
 test2 = """
+# while statement test
 a = 0
 
 while a < 10
@@ -24,6 +26,7 @@ end
 """
 
 test3 = """
+# fibonacci sequence
 i = 0
 
 a = 0
@@ -38,9 +41,16 @@ end
 """
 
 test4 = """
-a = 1
+# nested statements
 
-a = a << 2
+y = 0
+while y != 2
+    x = 0
+    while x != 2
+        x = x + 1
+    end
+    y = y + 1
+end
 """
 
 
