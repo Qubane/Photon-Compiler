@@ -503,7 +503,7 @@ class Compiler:
                     stack.append(line)
 
                 # get jump index before the condition
-                pre_condition_index = len(self.output)
+                pre_condition_index = len(self.output) - 1
 
                 # generate condition
                 self.convert_infix(condition)
