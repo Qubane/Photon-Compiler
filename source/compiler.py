@@ -180,8 +180,6 @@ class Compiler:
         self.allocate_var(self.temp_var)
         self.allocate_var(self.swap_var)
 
-        self.jump_indices: list[tuple[int, int]] = []
-
         for name, value in kwargs.items():
             setattr(self, name, value)
 
@@ -200,52 +198,12 @@ class Compiler:
             self.variable_mapper[var] = self.variable_counter
             self.variable_counter += 1
 
-    def update_jump_indices(self, index: int, offset: int = 1) -> None:
-        """
-        Updates the jump indices after a given index
-        :param index: instruction line index
-        :param offset: offset
-        """
-
-        for idx, (start, end) in enumerate(self.jump_indices):
-            if offset > 0:
-                if index <= start:
-                    self.jump_indices[idx] = (start + offset, end)
-                if index < end:
-                    self.jump_indices[idx] = (start, end + offset)
-            else:
-                if index >= start:
-                    self.jump_indices[idx] = (start + offset, end)
-                if index > end:
-                    self.jump_indices[idx] = (start, end + offset)
-
-    def add_jump_index(self, start: int, end: int) -> None:
-        """
-        Adds a new jump index
-        :param start: start index
-        :param end: end index
-        """
-
-        self.jump_indices.append((start, end))
-
-    def merge(self, instructions: list[PhotonIS]) -> None:
-        """
-        Merges 2 instruction lists
-        :param instructions: list of instructions
-        """
-
-        old_len = len(self.output)
-        self.output += instructions
-        new_len = len(self.output)
-        self.update_jump_indices(old_len, new_len - old_len)
-
     def add(self, asm: str) -> None:
         """
         Adds new instruction to output
         :param asm: sequence of assembly instructions
         """
 
-        old_len = len(self.output)
         asm = asm.split(" ")
         while asm and (token := asm.pop(0)):
             if token not in PHOTON_INSTRUCTION_SET:
@@ -257,8 +215,6 @@ class Compiler:
                 self.output.append(getattr(PhotonIS, instruction))
             else:
                 self.output.append(getattr(PhotonIS, token))
-        new_len = len(self.output)
-        self.update_jump_indices(old_len, new_len - old_len)
 
     def nibble_loading(self, num: str | int) -> tuple[list[int], str]:
         """
@@ -337,6 +293,15 @@ class Compiler:
         """
 
         self.load_mr(self.variable_mapper[var])
+
+    def load_pr(self, offset: str | int) -> None:
+        """
+        Load jump into PR
+        :param offset: offset (can be negative)
+        """
+
+        self.load_acc(offset + 128)
+        self.add("MOVC PR")
 
     def load_var(self, var: str) -> None:
         """
@@ -458,23 +423,6 @@ class Compiler:
                     self.load_var_to_mr(var1)
                     self.add("CA XOR WT")
 
-    def _compile_generate_jumps(self) -> None:
-        """
-        Generate jump instructions
-        """
-
-        for idx, (start, end) in enumerate(self.jump_indices):
-            output_left, output_right = self.output[:start], self.output[start:]
-            self.output = output_left
-
-            # for now just static number address load, cuz variable length of instructions is a bitch to account for
-            number = end - start + 128 + 1
-            nibbles = [(number & (1 << x)) >> x for x in range(self.bit_width - 1, -1, -1)]
-            self.add(" ".join(f"LAR {x}" for x in nibbles))
-            self.add("MOVC PR")
-
-            self.output += output_right
-
     def compile(self, asm: list[list[str]]) -> list[PhotonIS]:
         """
         Compiles the given assembly code structure
@@ -504,19 +452,42 @@ class Compiler:
             elif line[0] == "if":
                 condition = line[1:]
                 stack = []
-                while (line := asm.pop(0))[0] != "end":
+                while (line := asm.pop(0))[0] not in {"end", "else"}:
                     stack.append(line)
+                has_else = line[0] == "else"
+
+                # generate condition
                 self.convert_infix(condition)
                 self.add("MOV BR CA SUB")
                 # if CF == 1 then ACC was 1 => don't skip 'if'
                 # if CF == 0 then ACC was 0 => skip 'if'
 
-                start_index = len(self.output)
-                # merge compiled instructions from copy of current compiler
-                self.merge(self.__copy__().compile(stack))
-                end_index = len(self.output)
-                self.add_jump_index(start_index, end_index)
+                # compile the code inside the 'if'
+                compiler_if = self.__copy__()
+                compiler_if.compile(stack)
 
-        self._compile_generate_jumps()
+                # if there's an 'else'
+                compiled_else = []
+                if has_else:
+                    stack = []
+                    while (line := asm.pop(0))[0] not in {"end", "else"}:
+                        stack.append(line)
+
+                    # compile code inside 'else'
+                    compiled_else = self.__copy__().compile(stack)
+
+                    # add code to 'if' for jumping over the 'else' code
+                    # without condition
+                    compiler_if.add("XOR XOR")
+                    compiler_if.load_pr(len(compiled_else))
+
+                # generate jump to skip the 'if'
+                self.load_pr(len(compiler_if.output))
+
+                # append the 'if' code
+                self.output += compiler_if.output
+
+                # append the 'else' code
+                self.output += compiled_else
 
         return self.output
