@@ -521,14 +521,16 @@ class Compiler:
 
         stack = []
         depth = 0
-        while (line := asm.pop(0))[0] not in end_at:
+        while True:
+            line = asm.pop(0)
             stack.append(line)
             if line[0] in COMPILER_OPEN_CLAUSE:
                 depth += 1
-            elif line[0] in COMPILER_END_CLAUSE:
-                depth -= 1
+            elif line[0] in end_at:
                 if depth == 0:
+                    stack.pop()
                     break
+                depth -= 1
 
         return stack, line
 
