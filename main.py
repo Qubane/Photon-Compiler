@@ -44,9 +44,9 @@ test4 = """
 # nested statements
 
 y = 0
-while y != 2
+while y != 10
     x = 0
-    while x != 2
+    while x != 10
         x = x + 1
     end
     y = y + 1

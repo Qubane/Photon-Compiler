@@ -351,7 +351,7 @@ class Compiler:
         :param offset: offset (can be negative)
         """
 
-        self.load_acc(offset + 2**(self.bit_width-1))
+        self.load_acc(offset + 2**(self.bit_width - 1))
         self.add("MOVC PR")
 
     def load_var(self, var: str) -> None:

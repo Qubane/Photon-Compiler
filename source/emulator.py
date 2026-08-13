@@ -17,7 +17,8 @@ class Emulator:
         self.bit_width: int = 12
         self._max_int: int = 2 ** self.bit_width - 1
 
-        self.memory: list[int] = [0 for _ in range(2**self.bit_width)]
+        self.max_memory_size = 2**24  # 16 mil addresses
+        self.memory: list[int] = [0 for _ in range(min(self.max_memory_size, 2**self.bit_width))]
 
         self._instruction_mapper = [
             self._asm_lar_0,
@@ -94,10 +95,10 @@ class Emulator:
         self.CF = False
 
     def _asm_rd(self):
-        self.ACC = self.memory[self.MR]
+        self.ACC = self.memory[self.MR % self.max_memory_size]
 
     def _asm_wt(self):
-        self.memory[self.MR] = self.ACC
+        self.memory[self.MR % self.max_memory_size] = self.ACC
 
     def execute(self, asm: list[PhotonIS]):
         """
