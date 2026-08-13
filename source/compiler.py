@@ -390,18 +390,38 @@ class Compiler:
                         self.add("MOV BR")
                         self.load_var_to_mr(self.swap_var)
                         self.add("CA RD SUB")
-
                     # carry = 0 => A >  B; ACC >= 0; BR = B
                     # carry = 1 => A <= B; ACC >  0; BR = B
 
                     self.add("CA MOV BR")  # ACC = 0; BR = 0; carry = ?
                     self.add("LAR 1")
                     self.add("MOVC BR")
-
                     # carry = 0 => ACC = 1; BR = 1
                     # carry = 1 => ACC = 1; BR = 0
+
                     self.add("XOR")
                     variable_stack.append("__ACC__")
+                elif token == "==":
+                    self.load_auto(var2)
+                    self.add("MOV BR")
+                    self.load_auto(var1)
+                    self.add("XOR")
+                    # ACC = 0 if A == B
+                    # ACC > 0 if A != B
+
+                    self.add("MOV BR CA SUB")
+                    # CF = 0 if A == B
+                    # CF = 1 if A != B
+
+                    self.add("CA MOV BR LAR 1")  # write 0 to BR, write 1 to ACC
+                    self.add("MOVC BR AND")
+                    # if CF = 0, then ACC = 1
+                    # if CF = 1, then ACC = 0
+
+                    # if CF is 0, then MOVC BR will copy 1 to BR, and when bitwise AND of ACC and BR is done
+                    # since ACC == BR == 1, the result will be 1
+                    # if CF is 1, then MOVC BR will not copy 1 to BR, and BR will be 0, and when bitwise AND is done
+                    # since ACC == 1 and BR == 0, the result will be 0
                 elif token == "<<":
                     ...
                 elif token == ">>":
