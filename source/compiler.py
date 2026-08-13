@@ -19,6 +19,10 @@ COMPILER_OPERATORS.add(COMPILER_LINE_SPACER)
 COMPILER_OPERATORS.add(COMPILER_COMMENT_OPERATOR)
 COMPILER_BUILT_INS = {
     "if", "else", "for", "while", "end"}
+COMPILER_OPEN_CLAUSE = {
+    "if", "else", "for", "while"}
+COMPILER_END_CLAUSE = {
+    "end"}
 
 
 class Lexer:
@@ -183,6 +187,8 @@ class Compiler:
         self.allocate_var(self.temp_var)
         self.allocate_var(self.swap_var)
 
+        self.function_mapper: dict[str, int] = {}
+
         for name, value in kwargs.items():
             setattr(self, name, value)
 
@@ -190,6 +196,30 @@ class Compiler:
         excluded = {"output"}
         _dict = {key: deepcopy(value) for key, value in self.__dict__.items() if key not in excluded}
         return self.__class__(**_dict)
+
+    def create_function(self, name: str, index: int) -> None:
+        """
+        Creates a function
+        :param name: function name
+        :param index: function jump index
+        """
+
+        self.function_mapper[name] = index
+
+    def function_mapper_update(self, index: int, index_offset: int) -> None:
+        """
+        Update function index pointer
+        :param index: start index
+        :param index_offset: index offset
+        """
+
+        for key, value in self.function_mapper.items():
+            if index_offset > 0:
+                if value > index:
+                    self.function_mapper[key] += index_offset
+            else:
+                if value < index:
+                    self.function_mapper[key] += index_offset
 
     def allocate_var(self, var: str) -> None:
         """
@@ -201,12 +231,22 @@ class Compiler:
             self.variable_mapper[var] = self.variable_counter
             self.variable_counter += 1
 
+    def merge(self, instructions: list[PhotonIS]) -> None:
+        """
+        Merge instructions
+        :param instructions: list of instructions
+        """
+
+        self.function_mapper_update(len(self.output) - 1, len(instructions))
+        self.output += instructions
+
     def add(self, asm: str) -> None:
         """
         Adds new instruction to output
         :param asm: sequence of assembly instructions
         """
 
+        start_length = len(self.output)
         asm = asm.split(" ")
         while asm and (token := asm.pop(0)):
             if token not in PHOTON_INSTRUCTION_SET:
@@ -218,6 +258,7 @@ class Compiler:
                 self.output.append(getattr(PhotonIS, instruction))
             else:
                 self.output.append(getattr(PhotonIS, token))
+        self.function_mapper_update(start_length - 1, len(self.output) - start_length)
 
     def nibble_loading(self, num: str | int) -> tuple[list[int], str]:
         """
@@ -466,6 +507,31 @@ class Compiler:
                     self.load_var_to_mr(var1)
                     self.add("CA XOR WT")
 
+    def fetch_clause(self, asm: list[list[str]], end_at: set[str] | None = None) -> tuple[list[list[str]], list[str]]:
+        """
+        Fetches clause from given list.
+        NOTE: it pops data from given list directly.
+        :param asm: assembly code
+        :param end_at: end at instruction
+        :return: clause and last line
+        """
+
+        if end_at is None:
+            end_at = COMPILER_END_CLAUSE
+
+        stack = []
+        depth = 0
+        while (line := asm.pop(0))[0] not in end_at:
+            stack.append(line)
+            if line[0] in COMPILER_OPEN_CLAUSE:
+                depth += 1
+            elif line[0] in COMPILER_END_CLAUSE:
+                depth -= 1
+                if depth == 0:
+                    break
+
+        return stack, line
+
     def compile(self, asm: list[list[str]]) -> list[PhotonIS]:
         """
         Compiles the given assembly code structure
@@ -493,11 +559,10 @@ class Compiler:
                 else:
                     self.convert_infix(line)
             elif line[0] == "if":
+                # fetch clause and make condition
                 condition = line[1:]
-                stack = []
-                while (line := asm.pop(0))[0] not in {"end", "else"}:
-                    stack.append(line)
-                has_else = line[0] == "else"
+                stack, last_line = self.fetch_clause(asm, {"end", "else"})
+                has_else = last_line[0] == "else"
 
                 # generate condition
                 self.convert_infix(condition)
@@ -512,9 +577,8 @@ class Compiler:
                 # if there's an else clause
                 compiled_else = []
                 if has_else:
-                    stack = []
-                    while (line := asm.pop(0))[0] not in {"end", "else"}:
-                        stack.append(line)
+                    # fetch clause
+                    stack, last_line = self.fetch_clause(asm, {"end", "else"})
 
                     # compile code inside else clause
                     compiled_else = self.__copy__().compile(stack)
@@ -528,15 +592,14 @@ class Compiler:
                 self.load_pr(len(compiler_if.output))
 
                 # append the if clause
-                self.output += compiler_if.output
+                self.merge(compiler_if.output)
 
                 # append the else clause
-                self.output += compiled_else
+                self.merge(compiled_else)
             elif line[0] == "while":
+                # fetch clause and make condition
                 condition = line[1:]
-                stack = []
-                while (line := asm.pop(0))[0] != "end":
-                    stack.append(line)
+                stack, last_line = self.fetch_clause(asm, {"end", "else"})
 
                 # get jump index before the condition
                 pre_condition_index = len(self.output) - 1
@@ -567,6 +630,6 @@ class Compiler:
                 self.load_pr(len(compiler.output))
 
                 # add the while clause code
-                self.output += compiler.output
+                self.merge(compiler.output)
 
         return self.output
