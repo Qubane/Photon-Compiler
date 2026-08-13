@@ -14,7 +14,7 @@ class Emulator:
         self.PR: int = 0
         self.CF: bool = False
 
-        self.bit_width: int = 8
+        self.bit_width: int = 12
         self._max_int: int = 2 ** self.bit_width - 1
 
         self.memory: list[int] = [0 for _ in range(2**self.bit_width)]
@@ -110,7 +110,7 @@ class Emulator:
             instruction_count += 1
 
             self.ACC &= self._max_int
-            print(self.PR, asm[self.PR])
+            # print(self.PR, asm[self.PR])
             self._instruction_mapper[asm[self.PR].value]()
             self.PR += 1
         print(f"Done in {instruction_count} instructions")

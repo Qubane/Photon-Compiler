@@ -176,7 +176,7 @@ class Compiler:
     def __init__(self, **kwargs):
         self.output: list[PhotonIS] = []
 
-        self.bit_width: int = 8
+        self.bit_width: int = 12
         self._max_int: int = 2 ** self.bit_width - 1
 
         self.variable_counter: int = 0
