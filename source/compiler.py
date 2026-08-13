@@ -187,8 +187,8 @@ class Compiler:
             setattr(self, name, value)
 
     def __copy__(self):
-        _dict = deepcopy(self.__dict__)
-        _dict.pop("output")
+        excluded = {"output"}
+        _dict = {key: deepcopy(value) for key, value in self.__dict__.items() if key not in excluded}
         return self.__class__(**_dict)
 
     def allocate_var(self, var: str) -> None:
