@@ -429,10 +429,19 @@ class Compiler:
                     # since ACC == BR == 1, the result will be 1
                     # if CF is 1, then MOVC BR will not copy 1 to BR, and BR will be 0, and when bitwise AND is done
                     # since ACC == 1 and BR == 0, the result will be 0
-                elif token == "<<":
-                    ...
-                elif token == ">>":
-                    ...
+                elif token == "<<" or token == ">>":
+                    if swapped:
+                        raise NotImplementedError
+                    if not var1.isnumeric():
+                        raise NotImplementedError
+
+                    self.load_auto(var2)
+                    for _ in range(int(var1)):
+                        if token == "<<":
+                            self.add("LAR 0")
+                        else:
+                            self.add("LAL 0")
+                    variable_stack.append("__ACC__")
                 elif token == "&":
                     self.load_auto(var2)
                     self.add("MOV BR")

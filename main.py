@@ -4,27 +4,6 @@ from source.emulator import *
 
 
 test1 = """
-a=10
-b = 40
-c = ((b + 2) - a)
-
-d = a
-
-e = 1 << 2
-f = (a << 1) | b
-
-# random if check for no reason
-if a + b > c
-    c = a + b - 1
-end
-
-for i in range(4)
-    a = a + b
-end
-
-"""
-
-test2 = """
 a = 9
 b = 10
 
@@ -36,11 +15,7 @@ end
 
 """
 
-test3 = """
-a = 1 << 2
-"""
-
-test4 = """
+test2 = """
 a = 0
 
 while a < 10
@@ -48,13 +23,13 @@ while a < 10
 end
 """
 
-test5 = """
+test3 = """
 i = 0
 
 a = 0
 b = 1
 
-while i < 10
+while i != 10
     b = a + b
     a = b - a
     
@@ -62,9 +37,15 @@ while i < 10
 end
 """
 
+test4 = """
+a = 1
+
+a = a << 2
+"""
+
 
 def main():
-    tokens = Lexer.code_to_tokens(test5)
+    tokens = Lexer.code_to_tokens(test4)
     structs = Lexer.tokens_to_struct(tokens)
 
     print(tokens)
