@@ -25,14 +25,15 @@ end
 """
 
 test2 = """
-a = 11
+a = 9
 b = 10
 
 if a > b
-    b = a - 1
+    b = 1
+else
+    b = 2
 end
 
-b = a + b
 """
 
 test3 = """
@@ -50,7 +51,7 @@ def main():
     compiler = Compiler()
     compiled = compiler.compile(structs)
 
-    print(compiled)
+    print("\n".join(f"{idx: >{len(str(len(compiled)))}} {x}" for idx, x in enumerate(compiled)))
 
     emulator = Emulator()
     emulator.execute(compiled)
