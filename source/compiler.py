@@ -12,9 +12,9 @@ COMPILER_SPACERS = {
 COMPILER_LINE_SPACER = "\n"
 COMPILER_COMMENT_OPERATOR = "#"
 COMPILER_OPERATORS = {
-    ":", ";",
+    ":", ";", "!",
     "+", "-", "*", "/", "(", ")", "<<", ">>", "&", "|", "^", "=",
-    "==", "<", ">"}
+    "==", "!=", "<", ">"}
 COMPILER_OPERATORS.add(COMPILER_LINE_SPACER)
 COMPILER_OPERATORS.add(COMPILER_COMMENT_OPERATOR)
 COMPILER_BUILT_INS = {
@@ -36,6 +36,7 @@ class Lexer:
 
         # find overlaps
         operator_overlaps = {x[0] for x in COMPILER_OPERATORS if (x[0] != x and x[0] in COMPILER_OPERATORS)}
+        multi_char_ops = {x for x in COMPILER_OPERATORS if len(x) > 1}
 
         # do magic
         idx = 0
@@ -50,9 +51,9 @@ class Lexer:
                 if char in COMPILER_OPERATORS:
                     # if the operator overlaps, search for longest one the code may cover
                     if char in operator_overlaps:
-                        max_len = 0
-                        operator = ""
-                        for op in COMPILER_OPERATORS:
+                        max_len = 1
+                        operator = char
+                        for op in multi_char_ops:
                             if code[idx-1:idx+len(op)-1] == op and len(op) > max_len:
                                 operator = op
                                 max_len = len(op)
@@ -111,6 +112,7 @@ class Lexer:
             ">": 1,
             "<": 1,
             "==": 1,
+            "!=": 1,
             "|": 2,
             "^": 3,
             "&": 4,
@@ -127,6 +129,7 @@ class Lexer:
             ">": "L",
             "<": "L",
             "==": "L",
+            "!=": "L",
             "|": "L",
             "^": "L",
             "&": "L",
@@ -401,7 +404,7 @@ class Compiler:
 
                     self.add("XOR")
                     variable_stack.append("__ACC__")
-                elif token == "==":
+                elif token == "==" or token == "!=":
                     self.load_auto(var2)
                     self.add("MOV BR")
                     self.load_auto(var1)
@@ -414,7 +417,11 @@ class Compiler:
                     # CF = 1 if A != B
 
                     self.add("CA MOV BR LAR 1")  # write 0 to BR, write 1 to ACC
-                    self.add("MOVC BR AND")
+                    self.add("MOVC BR")
+                    if token == "==":
+                        self.add("AND")
+                    else:
+                        self.add("XOR")
                     # if CF = 0, then ACC = 1
                     # if CF = 1, then ACC = 0
 
