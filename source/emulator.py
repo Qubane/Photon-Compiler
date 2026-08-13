@@ -59,7 +59,7 @@ class Emulator:
 
     def _asm_movc_pr(self):
         if not self.CF:
-            self.PR += self.ACC - 128 - 1
+            self.PR += self.ACC - 128
 
     def _asm_mov_br(self):
         self.BR = self.ACC
@@ -83,12 +83,15 @@ class Emulator:
 
     def _asm_and(self):
         self.ACC &= self.BR
+        self.CF = False
 
     def _asm_or(self):
         self.ACC |= self.BR
+        self.CF = False
 
     def _asm_xor(self):
         self.ACC ^= self.BR
+        self.CF = False
 
     def _asm_rd(self):
         self.ACC = self.memory[self.MR]
@@ -107,6 +110,8 @@ class Emulator:
             instruction_count += 1
 
             self.ACC &= self._max_int
+            print(self.PR, asm[self.PR])
             self._instruction_mapper[asm[self.PR].value]()
             self.PR += 1
         print(f"Done in {instruction_count} instructions")
+        print(self.memory[:16])
