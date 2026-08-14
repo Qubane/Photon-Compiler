@@ -345,13 +345,14 @@ class Compiler:
 
         self.load_mr(self.variable_mapper[var])
 
-    def load_pr(self, offset: str | int) -> None:
+    def load_pr(self, offset: str | int, optimal: bool = True) -> None:
         """
         Load jump into PR
         :param offset: offset (can be negative)
+        :param optimal: static / dynamic length
         """
 
-        self.load_acc(offset + 2**(self.bit_width - 1))
+        self.load_acc(offset + 2**(self.bit_width - 1), optimal=optimal)
         self.add("MOVC PR")
 
     def load_var(self, var: str) -> None:
@@ -619,9 +620,9 @@ class Compiler:
                 # 1. length of code added by while clause (including this jump itself)
                 # 2. length of the condition section (including the jump over the while loop)
                 # then offset must become a negative one, since we are jumping back
-                jump_offset = len(compiler.output) + self.bit_width + 1
-                jump_offset += 1  # the AND instruction to get rid of carry flag for MOVC PR instruction
-                jump_offset += len(self.output) - pre_condition_index + self.bit_width + 1
+                jump_offset = len(compiler.output) + self.bit_width
+                jump_offset += 1  # AND operation
+                jump_offset += len(self.output) - pre_condition_index + self.bit_width
                 jump_offset = 2**(self.bit_width - 1) - jump_offset
 
                 compiler.add("AND")
@@ -629,7 +630,7 @@ class Compiler:
                 compiler.add("MOVC PR")
 
                 # create conditional jump over the while clause
-                self.load_pr(len(compiler.output))
+                self.load_pr(len(compiler.output) + 1, optimal=False)
 
                 # add the while clause code
                 self.merge(compiler.output)
