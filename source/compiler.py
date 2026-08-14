@@ -589,10 +589,10 @@ class Compiler:
                     # add code to if clause for jumping over the else clause
                     # without condition
                     compiler_if.add("XOR XOR")
-                    compiler_if.load_pr(len(compiled_else) + 1)
+                    compiler_if.load_pr(len(compiled_else))
 
                 # generate jump to skip the if clause
-                self.load_pr(len(compiler_if.output) + 1)
+                self.load_pr(len(compiler_if.output))
 
                 # append the if clause
                 self.merge(compiler_if.output)
@@ -623,14 +623,14 @@ class Compiler:
                 jump_offset = len(compiler.output) + self.bit_width
                 jump_offset += 1  # AND operation
                 jump_offset += len(self.output) - pre_condition_index + self.bit_width
-                jump_offset = 2**(self.bit_width - 1) - jump_offset
+                jump_offset = 2**(self.bit_width - 1) - jump_offset - 1
 
                 compiler.add("AND")
                 compiler.load_acc(jump_offset, optimal=False)
                 compiler.add("MOVC PR")
 
                 # create conditional jump over the while clause
-                self.load_pr(len(compiler.output) + 1, optimal=False)
+                self.load_pr(len(compiler.output), optimal=False)
 
                 # add the while clause code
                 self.merge(compiler.output)
