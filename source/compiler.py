@@ -20,7 +20,7 @@ COMPILER_OPERATORS.add(COMPILER_COMMENT_OPERATOR)
 COMPILER_BUILT_INS = {
     "if", "else", "for", "while", "end"}
 COMPILER_OPEN_CLAUSE = {
-    "if", "else", "for", "while"}
+    "if", "for", "while"}
 COMPILER_END_CLAUSE = {
     "end"}
 
@@ -581,7 +581,7 @@ class Compiler:
                 compiled_else = []
                 if has_else:
                     # fetch clause
-                    stack, last_line = self.fetch_clause(asm, {"end", "else"})
+                    stack, last_line = self.fetch_clause(asm)
 
                     # compile code inside else clause
                     compiled_else = self.__copy__().compile(stack)
@@ -589,10 +589,10 @@ class Compiler:
                     # add code to if clause for jumping over the else clause
                     # without condition
                     compiler_if.add("XOR XOR")
-                    compiler_if.load_pr(len(compiled_else))
+                    compiler_if.load_pr(len(compiled_else) + 1)
 
                 # generate jump to skip the if clause
-                self.load_pr(len(compiler_if.output))
+                self.load_pr(len(compiler_if.output) + 1)
 
                 # append the if clause
                 self.merge(compiler_if.output)
@@ -602,7 +602,7 @@ class Compiler:
             elif line[0] == "while":
                 # fetch clause and make condition
                 condition = line[1:]
-                stack, last_line = self.fetch_clause(asm, {"end", "else"})
+                stack, last_line = self.fetch_clause(asm)
 
                 # get jump index before the condition
                 pre_condition_index = len(self.output) - 1
