@@ -1,0 +1,21 @@
+# this is the classic Fibonacci sequence program
+# this will showcase basic while loop and add and subtract functionality
+# as well as some variable creation and operations
+
+# initial definition of variables `a` and `b`
+a = 0
+b = 1
+
+# define while loop
+# it does act same way the for loop would. I am just too lazy to make for loops right now
+i = 0
+while i != 10
+    # perform addition of `a` and `b`, and then perform `b - a` to get the previous item of the sequence back
+    # for the next iteration.
+    # this can be done using 3 variables too, but would perform technically slower
+    b = a + b
+    a = b - a
+
+    # increment i by 1
+    i = i + 1
+end
